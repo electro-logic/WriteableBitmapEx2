@@ -1,25 +1,12 @@
-# WriteableBitmapEx
+# WriteableBitmapEx v2
 
-The WriteableBitmapEx library is a collection of extension methods for the [WriteableBitmap](http://msdn.microsoft.com/en-us/library/system.windows.media.imaging.writeablebitmap%28VS.95%29.aspx). The WriteableBitmap class is available for all XAML flavors including WPF, Windows 10 UWP, Windows Phone, WinRT Windows Store XAML and Silverlight. It supports the .NET Framework and .NET Core 3 and was even ported to [Windows Embedded](http://wbexembedded.codeplex.com). WriteableBitmapEx allows the direct manipulation of a bitmap and can be used for image manipulation, to generate fast procedural images by drawing directly to a bitmap and more.  
-
-The WriteableBitmap API is very minimalistic and there's only the raw [Pixels](http://msdn.microsoft.com/en-us/library/system.windows.media.imaging.writeablebitmap.pixels(VS.95).aspx) array for such operations. The WriteableBitmapEx library tries to compensate that with extensions methods that are easy to use like built in methods and offer [GDI+](http://msdn.microsoft.com/en-us/library/ms533797(v=VS.85).aspx) like functionality. The library extends the WriteableBitmap class with elementary and fast (2D drawing) functionality, conversion methods and functions to combine (blit) WriteableBitmaps.  
-
-The extension methods are grouped into different C# files using a partial class approach. It is possible to include just a few methods by using the specific source code files directly or the full functionality via the built binaries.  
-
-The latest binaries are available as [NuGet package](http://nuget.org/List/Packages/WriteableBitmapEx).
-
-Please use the [GitHub Issues functionality](https://github.com/teichgraf/WriteableBitmapEx/issues) to add new issues which are not already reported. 
-
-![wbx_announcement.png](https://4.bp.blogspot.com/-kGQh1bS1qlk/Sx1KnIEhZ3I/AAAAAAAAAI0/z3P5rYjXuk8/s1600/wbx_announcement.png)
-
-
-# News 
-* now supports text rendering (outline and fill)
+What's new?
+- .NET 9 support
+- WPF only
 
 # Features
 
 [GDI+](http://msdn.microsoft.com/en-us/library/ms533797(v=VS.85).aspx) like drawing functionality for the WriteableBitmap.
-Support for WPF, Windows 10 UWP (, Windows 8/8.1 WinRT XAML, Windows Phone Silverlight, Windows Phone WinRT and desktop Silverlight).
 
 *   Base
     *   Support for the [Color structure](http://msdn.microsoft.com/en-us/library/system.windows.media.color(VS.95).aspx) (alpha premultiplication will be performed)
@@ -60,13 +47,6 @@ Support for WPF, Windows 10 UWP (, Windows 8/8.1 WinRT XAML, Windows Phone Silve
     *   Create a WriteableBitmap from an any platform supported image stream
     *   Write a WriteableBitmap as a [TGA image](http://en.wikipedia.org/wiki/Truevision_TGA) to a stream
     *   Separate extension method to save as a [PNG image](http://en.wikipedia.org/wiki/Portable_Network_Graphics). Download [here](http://writeablebitmapex.codeplex.com/discussions/274445)
-*   Windows Phone specific methods
-    *   Save to media library and the camera roll
-
-
-# Performance!
-
-The WriteableBitmapEx methods are much faster than the XAML [Shape](http://msdn.microsoft.com/en-us/library/system.windows.shapes.shape(VS.95).aspx) subclasses. For example, the WriteableBitmapEx line drawing approach is more than 20-30 times faster than the Silverlight [Line](http://msdn.microsoft.com/en-us/library/system.windows.shapes.line(VS.95).aspx) element. If a lot of shapes need to be drawn, the WriteableBitmapEx methods are the right choice.
 
 # Easy to use!
 ```cs
@@ -172,16 +152,3 @@ The WriteableBitmapEx library has its origin in several blog posts that also des
 * [Filled To The Bursting Point - WriteableBitmapEx 0.9.5.0](http://kodierer.blogspot.com/2010/06/filled-to-bursting-point.html) announced version 0.9.5.0, has some information about the new Fill methods and comes with a nice sample.  
 * [One Bitmap to Rule Them All - WriteableBitmapEx for WinRT Metro Style](http://kodierer.blogspot.de/2012/05/one-bitmap-to-rule-them-all.html) announced version 1.0.0.0 and provides some background about the WinRT Metro Style version. 
 * [Space Navigator](https://www.codeproject.com/Articles/1225848/Space-Navigator-A-Journey-into-WPFs-Display-Sub-Sy) is a great project on Code Project that compares the performance of the WriteableBitmapEx to other methods in WPF for visualizing large hierarchical data in a Tree Map.  
-
-# Support it
-
-[![Donate](https://www.paypal.com/en_US/i/btn/btn_donateCC_LG_global.gif "Donate")](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RPXX29MESX8A2)
-
-# Credits
-
-* [Rene Schulte](http://blog.rene-schulte.info) started this project, maintains it and provided most of the code.  
-* [Dr. Andrew Burnett-Thompson](http://www.linkedin.com/profile/view?id=54694225)and his team proposed the portability refactoring, provided the WPF port and much more beneficial functions.  
-* [Nikola Mihaylov (Nokola)](http://nokola.com) made some optimizations on the DrawLine and DrawRectangle methods, provided the original TgaWrite and the anti-aliased line drawing function.  
-* [Bill Reiss](http://blogs.silverarcade.com/silverlight-games-101) wrote the Blit methods. 
-
-And all the other amazing contributors you can see in the Contributors tab here on GitHub.
