@@ -577,7 +577,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
         /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
         /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
-        public static WriteableBitmap RotateFree(this WriteableBitmap bmp, double angle, bool crop = true)
+        public static WriteableBitmap RotateFree(this WriteableBitmap bmp, double angle, bool crop = true, int missingPixelsColor = 255 << 24)
         {
             double cnAngle = -1.0 * (Math.PI / 180.0) * angle;
             int iWidth, iHeight, newWidth, newHeight;
@@ -671,7 +671,7 @@ namespace System.Windows.Media.Imaging
                     }
                     else
                     {
-                        newPixels[(i * newWidth) + j] = 0;
+                        newPixels[(i * newWidth) + j] = missingPixelsColor;
                     }
                 }
             });
