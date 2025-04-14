@@ -2,6 +2,7 @@
 
 What's new?
 - .NET 9 support
+- RotateFree rewritten (10x faster)
 - WPF only
 
 # Features
