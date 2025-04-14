@@ -16,6 +16,10 @@
 //
 #endregion
 
+using System.Buffers;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
 namespace System.Windows.Media.Imaging
 {
     /// <summary>
@@ -381,7 +385,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
         /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
         /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
-        public static WriteableBitmap RotateFree(this WriteableBitmap bmp, double angle, bool crop = true)
+        public static WriteableBitmap RotateFreeLegacy(this WriteableBitmap bmp, double angle, bool crop = true)
         {
             // rotating clockwise, so it's negative relative to Cartesian quadrants
             double cnAngle = -1.0 * (Math.PI / 180) * angle;
@@ -563,6 +567,114 @@ namespace System.Windows.Media.Imaging
                                            | ((byte)((iBlue * a) >> 8));
                 }
             }
+            return bmBilinearInterpolation;
+        }
+
+        /// <summary>
+        /// Rotates the bitmap in any degree returns a new rotated WriteableBitmap (optimized).
+        /// </summary>
+        /// <param name="bmp">The WriteableBitmap.</param>
+        /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
+        /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
+        /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
+        public static WriteableBitmap RotateFree(this WriteableBitmap bmp, double angle, bool crop = true)
+        {
+            double cnAngle = -1.0 * (Math.PI / 180.0) * angle;
+            int iWidth, iHeight, newWidth, newHeight;
+            int iCentreX, iCentreY;
+            int iDestCentreX, iDestCentreY;
+
+            using var bmpContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+            iWidth = bmpContext.Width;
+            iHeight = bmpContext.Height;
+            var oldPixels = bmpContext.Pixels;
+
+            if (crop)
+            {
+                newWidth = iWidth;
+                newHeight = iHeight;
+            }
+            else
+            {
+                var rad = angle / (180.0 / Math.PI);
+                newWidth = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iHeight) + Math.Abs(Math.Cos(rad) * iWidth));
+                newHeight = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iWidth) + Math.Abs(Math.Cos(rad) * iHeight));
+            }
+
+            iCentreX = iWidth / 2;
+            iCentreY = iHeight / 2;
+            iDestCentreX = newWidth / 2;
+            iDestCentreY = newHeight / 2;
+
+            var bmBilinearInterpolation = BitmapFactory.New(newWidth, newHeight);
+            using var bilinearContext = bmBilinearInterpolation.GetBitmapContext();
+            var newPixels = bilinearContext.Pixels; // We'll write to the rented array via the context
+
+            // Pre-calculate trigonometric values
+            var cosAngle = Math.Cos(cnAngle);
+            var sinAngle = Math.Sin(cnAngle);
+
+            // Parallel processing of pixels
+            Parallel.For(0, newHeight, i =>
+            {
+                for (int j = 0; j < newWidth; ++j)
+                {
+                    // Convert raster to Cartesian (centered)
+                    double x = j - iDestCentreX;
+                    double y = iDestCentreY - i;
+
+                    // Rotate the Cartesian coordinates (reverse rotation)
+                    double rotatedX = x * cosAngle - y * sinAngle;
+                    double rotatedY = x * sinAngle + y * cosAngle;
+
+                    // Convert back to raster coordinates
+                    double sourceX = rotatedX + iCentreX;
+                    double sourceY = iCentreY - rotatedY;
+
+                    // Bilinear interpolation
+                    int floorX = (int)Math.Floor(sourceX);
+                    int floorY = (int)Math.Floor(sourceY);
+                    int ceilX = (int)Math.Ceiling(sourceX);
+                    int ceilY = (int)Math.Ceiling(sourceY);
+
+                    if (floorX >= 0 && ceilX < iWidth && floorY >= 0 && ceilY < iHeight)
+                    {
+                        double deltaX = sourceX - floorX;
+                        double deltaY = sourceY - floorY;
+
+                        var topLeft = oldPixels[(floorY * iWidth) + floorX];
+                        var topRight = oldPixels[(floorY * iWidth) + ceilX];
+                        var bottomLeft = oldPixels[(ceilY * iWidth) + floorX];
+                        var bottomRight = oldPixels[(ceilY * iWidth) + ceilX];
+
+                        // Interpolate alpha
+                        double topAlpha = ((1 - deltaX) * ((topLeft >> 24) & 0xFF)) + (deltaX * ((topRight >> 24) & 0xFF));
+                        double bottomAlpha = ((1 - deltaX) * ((bottomLeft >> 24) & 0xFF)) + (deltaX * ((bottomRight >> 24) & 0xFF));
+                        int alpha = (int)Math.Round(((1 - deltaY) * topAlpha) + (deltaY * bottomAlpha));
+
+                        // Interpolate red
+                        double topRed = ((1 - deltaX) * ((topLeft >> 16) & 0xFF)) + (deltaX * ((topRight >> 16) & 0xFF));
+                        double bottomRed = ((1 - deltaX) * ((bottomLeft >> 16) & 0xFF)) + (deltaX * ((bottomRight >> 16) & 0xFF));
+                        int red = (int)Math.Round(((1 - deltaY) * topRed) + (deltaY * bottomRed));
+
+                        // Interpolate green
+                        double topGreen = ((1 - deltaX) * ((topLeft >> 8) & 0xFF)) + (deltaX * ((topRight >> 8) & 0xFF));
+                        double bottomGreen = ((1 - deltaX) * ((bottomLeft >> 8) & 0xFF)) + (deltaX * ((bottomRight >> 8) & 0xFF));
+                        int green = (int)Math.Round(((1 - deltaY) * topGreen) + (deltaY * bottomGreen));
+
+                        // Interpolate blue
+                        double topBlue = ((1 - deltaX) * (topLeft & 0xFF)) + (deltaX * (topRight & 0xFF));
+                        double bottomBlue = ((1 - deltaX) * (bottomLeft & 0xFF)) + (deltaX * (bottomRight & 0xFF));
+                        int blue = (int)Math.Round(((1 - deltaY) * topBlue) + (deltaY * bottomBlue));
+
+                        newPixels[(i * newWidth) + j] = (alpha << 24) | (red << 16) | (green << 8) | blue;
+                    }
+                    else
+                    {
+                        newPixels[(i * newWidth) + j] = 0;
+                    }
+                }
+            });
             return bmBilinearInterpolation;
         }
 

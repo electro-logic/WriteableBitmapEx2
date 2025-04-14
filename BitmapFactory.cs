@@ -44,7 +44,6 @@ namespace System.Windows.Media.Imaging
             {
                 pixelWidth = 1;
             }
-
             return new WriteableBitmap(pixelWidth, pixelHeight, 96.0, 96.0, PixelFormats.Pbgra32, null);
         }
 
