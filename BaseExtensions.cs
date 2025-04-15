@@ -33,19 +33,17 @@ namespace System.Windows.Media.Imaging
 
         #region General
 
-        public static int ConvertColor(double opacity, Color color)
+        public static int ToColorInt(this Color color, double opacity)
         {
             if (opacity is < 0.0 or > 1.0)
             {
                 throw new ArgumentOutOfRangeException(nameof(opacity), "Opacity must be between 0.0 and 1.0");
             }
-
             color.A = (byte)(color.A * opacity);
-
-            return ConvertColor(color);
+            return ToColorInt(color);
         }
 
-        public static int ConvertColor(Color color)
+        public static int ToColorInt(this Color color)
         {
             var col = 0;
 
@@ -57,7 +55,6 @@ namespace System.Windows.Media.Imaging
                   | ((byte)((color.G * a) >> 8) << 8)
                   | ((byte)((color.B * a) >> 8));
             }
-
             return col;
         }
 
@@ -68,7 +65,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color used for filling.</param>
         public static void Clear(this WriteableBitmap bmp, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             using var context = bmp.GetBitmapContext();
             var pixels = context.Pixels;
             var w = context.Width;
@@ -141,7 +138,7 @@ namespace System.Windows.Media.Imaging
                 for (int x = 0; x < w; x++)
                 {
                     var color = func(x, y);
-                    pixels[index++] = ConvertColor(color);
+                    pixels[index++] = ToColorInt(color);
                 }
             }
         }
@@ -182,7 +179,7 @@ namespace System.Windows.Media.Imaging
                                                   (byte)(((c & 0xFF) * ai) >> 8));
 
                     var color = func(x, y, srcColor);
-                    pixels[index++] = ConvertColor(color);
+                    pixels[index++] = ToColorInt(color);
                 }
             }
         }
@@ -342,7 +339,7 @@ namespace System.Windows.Media.Imaging
         public static void SetPixeli(this WriteableBitmap bmp, int index, Color color)
         {
             using var context = bmp.GetBitmapContext();
-            context.Pixels[index] = ConvertColor(color);
+            context.Pixels[index] = ToColorInt(color);
         }
 
         /// <summary>
@@ -356,7 +353,7 @@ namespace System.Windows.Media.Imaging
         public static void SetPixel(this WriteableBitmap bmp, int x, int y, Color color)
         {
             using var context = bmp.GetBitmapContext();
-            context.Pixels[(y * context.Width) + x] = ConvertColor(color);
+            context.Pixels[(y * context.Width) + x] = ToColorInt(color);
         }
 
         /// <summary>

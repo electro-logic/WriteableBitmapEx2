@@ -37,7 +37,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the line.</param>
         public static void DrawPolyline(this WriteableBitmap bmp, int[] points, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawPolyline(points, col);
         }
 
@@ -75,7 +75,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the line.</param>
         public static void DrawPolylineAa(this WriteableBitmap bmp, int[] points, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawPolylineAa(points, col);
         }
 
@@ -88,7 +88,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="thickness">The thickness for the line.</param>
         public static void DrawPolylineAa(this WriteableBitmap bmp, int[] points, Color color, int thickness)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawPolylineAa(points, col, thickness);
         }
 
@@ -158,7 +158,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color.</param>
         public static void DrawTriangle(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, int x3, int y3, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawTriangle(x1, y1, x2, y2, x3, y3, col);
         }
 
@@ -200,7 +200,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color.</param>
         public static void DrawQuad(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawQuad(x1, y1, x2, y2, x3, y3, x4, y4, col);
         }
 
@@ -246,7 +246,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color.</param>
         public static void DrawRectangle(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawRectangle(x1, y1, x2, y2, col);
         }
 
@@ -330,7 +330,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the line.</param>
         public static void DrawEllipse(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawEllipse(x1, y1, x2, y2, col);
         }
 
@@ -366,7 +366,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the line.</param>
         public static void DrawEllipseCentered(this WriteableBitmap bmp, int xc, int yc, int xr, int yr, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawEllipseCentered(xc, yc, xr, yr, col);
         }
 

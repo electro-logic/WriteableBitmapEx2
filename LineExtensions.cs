@@ -34,7 +34,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="clipRect">The region in the image to restrict drawing to.</param>
         public static void DrawLineBresenham(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color, Rect? clipRect = null)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawLineBresenham(x1, y1, x2, y2, col, clipRect);
         }
 
@@ -167,7 +167,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="clipRect">The region in the image to restrict drawing to.</param>
         public static void DrawLineDDA(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color, Rect? clipRect = null)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawLineDDA(x1, y1, x2, y2, col, clipRect);
         }
 
@@ -249,7 +249,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="clipRect">The region in the image to restrict drawing to.</param>
         public static void DrawLine(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color, Rect? clipRect = null)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawLine(x1, y1, x2, y2, col, clipRect);
         }
 
@@ -730,7 +730,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the line.</param>
         public static void DrawLineDotted(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, int dotSpace, int dotLength, Color color)
         {
-            var c = ConvertColor(color);
+            var c = ToColorInt(color);
             DrawLineDotted(bmp, x1, y1, x2, y2, dotSpace, dotLength, c);
         }
         /// <summary>
@@ -1200,7 +1200,7 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         public static void DrawLineAa(BitmapContext context, int pixelWidth, int pixelHeight, int x1, int y1, int x2, int y2, Color color, int strokeThickness, Rect? clipRect = null)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             AAWidthLine(pixelWidth, pixelHeight, context, x1, y1, x2, y2, strokeThickness, col, clipRect);
         }
 
@@ -1217,7 +1217,7 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         public static void DrawLineAa(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color, int strokeThickness, Rect? clipRect = null)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             using var context = bmp.GetBitmapContext();
             AAWidthLine(context.Width, context.Height, context, x1, y1, x2, y2, strokeThickness, col, clipRect);
         }
@@ -1235,7 +1235,7 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         public static void DrawLineAa(this WriteableBitmap bmp, int x1, int y1, int x2, int y2, Color color, Rect? clipRect = null)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawLineAa(x1, y1, x2, y2, col, clipRect);
         }
 

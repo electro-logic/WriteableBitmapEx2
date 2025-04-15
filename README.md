@@ -6,7 +6,8 @@ What's changed
 - Visual Studio 2022 / .NET 9 support
 - RotateFree rewritten from scratch (10x faster)
 - Removed legacy Silverlight, Windows Phone, and UWP support
-- Removed samples and unit tests
+- Removed samples projects and legacy unit tests to simplify the code base
+- ConvertColor refactored to extension method and renamed ToColorInt()
 
 # Features
 

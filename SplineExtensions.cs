@@ -48,7 +48,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color.</param>
         public static void DrawBezier(this WriteableBitmap bmp, int x1, int y1, int cx1, int cy1, int cx2, int cy2, int x2, int y2, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawBezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2, col);
         }
 
@@ -126,7 +126,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the spline.</param>
         public static void DrawBeziers(this WriteableBitmap bmp, int[] points, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawBeziers(points, col);
         }
 
@@ -237,7 +237,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the spline.</param>
         public static void DrawCurve(this WriteableBitmap bmp, int[] points, float tension, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawCurve(points, tension, col);
         }
 
@@ -280,7 +280,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="color">The color for the spline.</param>
         public static void DrawCurveClosed(this WriteableBitmap bmp, int[] points, float tension, Color color)
         {
-            var col = ConvertColor(color);
+            var col = ToColorInt(color);
             bmp.DrawCurveClosed(points, tension, col);
         }
 
