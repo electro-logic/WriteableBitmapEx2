@@ -1,16 +1,17 @@
 # WriteableBitmapEx v2
 
-What's new?
-- .NET 9 support
-- RotateFree rewritten (10x faster)
-- WPF only
+Project based on https://github.com/reneschulte/WriteableBitmapEx
+
+What's changed
+- Visual Studio 2022 / .NET 9 support
+- RotateFree rewritten from scratch (10x faster)
+- Removed legacy Silverlight, Windows Phone, and UWP support
+- Removed samples and unit tests
 
 # Features
 
-[GDI+](http://msdn.microsoft.com/en-us/library/ms533797(v=VS.85).aspx) like drawing functionality for the WriteableBitmap.
-
 *   Base
-    *   Support for the [Color structure](http://msdn.microsoft.com/en-us/library/system.windows.media.color(VS.95).aspx) (alpha premultiplication will be performed)
+    *   Support for System.Windows.Media.Color (alpha premultiplication will be performed)
     *   Also overloads for faster int32 as color (assumed to be already alpha premultiplied)
     *   SetPixel method with various overloads
     *   GetPixel method to get the pixel color at a specified x, y coordinate
@@ -46,10 +47,11 @@ What's new?
     *   Create a WriteableBitmap from a byte array
     *   Create a WriteableBitmap easily from the application resource or content
     *   Create a WriteableBitmap from an any platform supported image stream
-    *   Write a WriteableBitmap as a [TGA image](http://en.wikipedia.org/wiki/Truevision_TGA) to a stream
-    *   Separate extension method to save as a [PNG image](http://en.wikipedia.org/wiki/Portable_Network_Graphics). Download [here](http://writeablebitmapex.codeplex.com/discussions/274445)
+    *   Write a WriteableBitmap as a TGA image to a stream
+    *   Separate extension method to save as a PNG image
 
-# Easy to use!
+# Usage examples
+
 ```cs
 // Initialize the WriteableBitmap with size 512x512 and set it as source of an Image control
 WriteableBitmap writeableBmp = BitmapFactory.New(512, 512);
@@ -140,16 +142,4 @@ var resized = writeableBmp.Resize(200, 300, WriteableBitmapExtensions.Interpolat
 
 # Additional Information
 
-The WriteableBitmapEx library has its origin in several blog posts that also describe the implemenation and usage of some aspects in detail. The blog posts might be seen as the documentation:
-* [WriteableBitmap Extension Methods](http://kodierer.blogspot.com/2009/07/writeablebitmap-extension-methods.html) introduced the SetPixel methods.  
-* [Drawing Lines - Silverlight WriteableBitmap Extensions II](http://kodierer.blogspot.com/2009/10/drawing-lines-silverlight.html) provided the DrawLine methods.   
-* [Drawing Shapes - Silverlight WriteableBitmap Extensions III](http://kodierer.blogspot.com/2009/11/drawing-shapes-silverlight.html) brought the shape functionality (ellipse, polyline, quad, rectangle, triangle).  
-* [Convert, Encode And Decode Silverlight WriteableBitmap Data](http://kodierer.blogspot.com/2009/11/convert-encode-and-decode-silverlight.html) came with the byte array conversion methods and hows how to encode / decode a WriteableBitmap to JPEG.  
-* [Blitting and Blending with Silverlight’s WriteableBitmap](http://blogs.silverarcade.com/silverlight-games-101/15/silverlight-blitting-and-blending-with-silverlights-writeablebitmap/) provided the Blit functions.  
-* [WriteableBitmapEx - WriteableBitmap extensions now on CodePlex](http://kodierer.blogspot.com/2009/12/writeablebitmapex-writeablebitmap.html) announced this project.  
-* [Quick and Dirty Output of WriteableBitmap as TGA Image](http://nokola.com/blog/post/2010/01/21/Quick-and-Dirty-Output-of-WriteableBitmap-as-TGA-Image.aspx) provided the original TgaWrite function.  
-* [Rounder, Faster, Better - WriteableBitmapEx 0.9.0.0](http://kodierer.blogspot.com/2010/01/rounder-faster-better-writeablebitmapex.html) announced version 0.9.0.0 and gives some further information about the curve sample.  
-* [Let it ring - WriteableBitmapEx for Windows Phone](http://kodierer.blogspot.com/2010/03/let-it-ring-writeablebitmapex-for.html) introtuced the WriteableBitmapEx version for the Windows Phone and a sample.  
-* [Filled To The Bursting Point - WriteableBitmapEx 0.9.5.0](http://kodierer.blogspot.com/2010/06/filled-to-bursting-point.html) announced version 0.9.5.0, has some information about the new Fill methods and comes with a nice sample.  
-* [One Bitmap to Rule Them All - WriteableBitmapEx for WinRT Metro Style](http://kodierer.blogspot.de/2012/05/one-bitmap-to-rule-them-all.html) announced version 1.0.0.0 and provides some background about the WinRT Metro Style version. 
-* [Space Navigator](https://www.codeproject.com/Articles/1225848/Space-Navigator-A-Journey-into-WPFs-Display-Sub-Sy) is a great project on Code Project that compares the performance of the WriteableBitmapEx to other methods in WPF for visualizing large hierarchical data in a Tree Map.  
+Original blog posts: https://kodierer.blogspot.com/search/label/WriteableBitmapEx
