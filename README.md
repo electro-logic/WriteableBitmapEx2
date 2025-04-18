@@ -5,7 +5,7 @@ Project based on https://github.com/reneschulte/WriteableBitmapEx
 What's changed
 - Visual Studio 2022 / .NET 9 support
 - RotateFree rewritten from scratch (10x faster)
-- New Binning, SetRow and CropRelative method
+- New Binning, SetRow and CropRelative methods
 - ConvertColor refactored to extension method and renamed ToColorInt()
 - Removed legacy Silverlight, Windows Phone, and UWP support
 - Removed samples projects and legacy unit tests to simplify the code base
