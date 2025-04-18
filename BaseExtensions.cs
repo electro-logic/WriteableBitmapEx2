@@ -16,6 +16,8 @@
 //
 #endregion
 
+using System.Runtime.InteropServices;
+
 namespace System.Windows.Media.Imaging
 {
     /// <summary>
@@ -46,7 +48,6 @@ namespace System.Windows.Media.Imaging
         public static int ToColorInt(this Color color)
         {
             var col = 0;
-
             if (color.A != 0)
             {
                 var a = color.A + 1;
@@ -420,6 +421,32 @@ namespace System.Windows.Media.Imaging
         {
             using var context = bmp.GetBitmapContext();
             context.Pixels[(y * context.Width) + x] = color;
+        }
+
+        /// <summary>
+        /// Sets a row of pixels in the WriteableBitmap.
+        /// </summary>
+        public static void SetRow(this WriteableBitmap bmp, int row, int[] pixels)
+        {
+            if (bmp == null)
+                throw new ArgumentNullException(nameof(bmp));
+
+            if (row < 0 || row >= bmp.PixelHeight)
+                throw new ArgumentOutOfRangeException(nameof(row), "Row index is out of bounds.");
+
+            if (pixels == null)
+                throw new ArgumentNullException(nameof(pixels));
+
+            if (pixels.Length != bmp.PixelWidth)
+                throw new ArgumentException("The number of pixels in the array must match the width of the bitmap.", nameof(pixels));
+
+            using var context = bmp.GetBitmapContext();
+            fixed (int* pixelPtr = pixels)
+            {
+                int* rowPtr = (int*)(context.Pixels + row * bmp.PixelWidth);
+                long size = pixels.Length * sizeof(int);
+                Buffer.MemoryCopy(pixelPtr, rowPtr, size, size);
+            }
         }
 
         #endregion

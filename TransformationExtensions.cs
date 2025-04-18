@@ -138,6 +138,37 @@ namespace System.Windows.Media.Imaging
             return bmp.Crop((int)region.X, (int)region.Y, (int)region.Width, (int)region.Height);
         }
 
+        /// <summary>
+        /// Creates a new WriteableBitmap by cropping a region from the source WriteableBitmap.
+        /// The cropping region is specified using relative coordinates (0.0 - 1.0) to the image dimensions.
+        /// </summary>
+        public static WriteableBitmap CropRelative(this WriteableBitmap bmp, Rect relativeRegion)
+        {
+            if (bmp == null)
+                return null;
+            if (relativeRegion.Left < 0 || relativeRegion.Top < 0 || relativeRegion.Right > 1 || relativeRegion.Bottom > 1 || relativeRegion.Width <= 0 || relativeRegion.Height <= 0)
+                throw new ArgumentOutOfRangeException(nameof(relativeRegion));
+
+            int sourceWidth = bmp.PixelWidth;
+            int sourceHeight = bmp.PixelHeight;
+
+            int x = (int)(relativeRegion.Left * sourceWidth);
+            int y = (int)(relativeRegion.Top * sourceHeight);
+            int width = (int)(relativeRegion.Width * sourceWidth);
+            int height = (int)(relativeRegion.Height * sourceHeight);
+
+            // Adjust for potential rounding issues and ensure the cropped region stays within bounds
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x + width > sourceWidth) width = sourceWidth - x;
+            if (y + height > sourceHeight) height = sourceHeight - y;
+
+            if (width <= 0 || height <= 0)
+                return null; // Cropped region has zero dimensions
+
+            return bmp.Crop(x, y, width, height);
+        }
+
         #endregion
 
         #region Resize
@@ -732,6 +763,95 @@ namespace System.Windows.Media.Imaging
             return result;
         }
 
+        #endregion
+
+        #region Binning
+
+        /// <summary>
+        /// Creates a new WriteableBitmap by binning the pixels of the source WriteableBitmap in parallel, optimizing for memory access
+        /// </summary>
+        /// <param name="bmp">The source WriteableBitmap.</param>
+        /// <param name="binning">The binning factor. For example, a binning of 2 will average 2x2 pixel blocks.</param>
+        public static unsafe WriteableBitmap Binning(this WriteableBitmap bmp, int binning = 2)
+        {
+            if (bmp == null)
+            {
+                return null;
+            }
+            if (bmp.Format.BitsPerPixel != 32)
+            {
+                throw new ArgumentException("Only 32 bits pixel formats are supported.", nameof(bmp));
+            }
+            if (binning <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(binning), "Binning factor must be greater than zero.");
+            }
+            int sourceWidth = bmp.PixelWidth;
+            int sourceHeight = bmp.PixelHeight;
+            int targetWidth = sourceWidth / binning;
+            int targetHeight = sourceHeight / binning;
+            if (targetWidth == 0 || targetHeight == 0)
+            {
+                throw new InvalidOperationException("Binning factor resulted in zero target dimensions.");
+            }
+            var targetBmp = BitmapFactory.New(targetWidth, targetHeight);
+            bmp.Lock();
+            targetBmp.Lock();
+            try
+            {
+                byte* pSource = (byte*)bmp.BackBuffer.ToPointer();
+                int sourceStride = bmp.BackBufferStride;
+                byte* pTarget = (byte*)targetBmp.BackBuffer.ToPointer();
+                int targetStride = targetBmp.BackBufferStride;
+                Parallel.For(0, targetHeight, y =>
+                {
+                    for (int x = 0; x < targetWidth; x++)
+                    {
+                        int sourceX = x * binning;
+                        int sourceY = y * binning;
+                        int totalB = 0;
+                        int totalG = 0;
+                        int totalR = 0;
+                        int pixelCount = 0;
+                        for (int dy = 0; dy < binning; dy++)
+                        {
+                            for (int dx = 0; dx < binning; dx++)
+                            {
+                                int currentSourceX = sourceX + dx;
+                                int currentSourceY = sourceY + dy;
+                                if (currentSourceX < sourceWidth && currentSourceY < sourceHeight)
+                                {
+                                    byte* sourcePixel = pSource + (currentSourceY * sourceStride) + (currentSourceX * 4);
+                                    totalB += sourcePixel[0];
+                                    totalG += sourcePixel[1];
+                                    totalR += sourcePixel[2];
+                                    pixelCount++;
+                                }
+                            }
+                        }
+                        if (pixelCount > 0)
+                        {
+                            int averageB = totalB / pixelCount;
+                            int averageG = totalG / pixelCount;
+                            int averageR = totalR / pixelCount;
+
+                            byte* targetPixel = pTarget + (y * targetStride) + (x * 4);
+                            targetPixel[0] = (byte)averageB;
+                            targetPixel[1] = (byte)averageG;
+                            targetPixel[2] = (byte)averageR;
+                            targetPixel[3] = 255;
+                        }
+                    }
+                });
+            }
+            finally
+            {
+                // Always unlock the back buffers
+                bmp.Unlock();
+                targetBmp.Unlock();
+            }
+            return targetBmp;
+        }
         #endregion
 
         #endregion
