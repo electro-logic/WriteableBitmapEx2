@@ -18,6 +18,7 @@
 
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace System.Windows.Media.Imaging
 {
@@ -69,13 +70,33 @@ namespace System.Windows.Media.Imaging
         }
 
         /// <summary>
-        /// Loads an image from the applications resource file and returns a new WriteableBitmap.
+        /// Loads an image from the calling assembly's resource file and returns a new WriteableBitmap.
         /// </summary>
+        /// <remarks>
+        /// Resolves the resource assembly via <see cref="Assembly.GetCallingAssembly"/>. That call is trim-safe,
+        /// but aggressive inlining (e.g. under Native AOT) can make the calling assembly ambiguous, so this method
+        /// is marked <see cref="MethodImplOptions.NoInlining"/>. For full AOT robustness prefer the overload that
+        /// takes the <see cref="Assembly"/> explicitly.
+        /// </remarks>
         /// <param name="relativePath">Only the relative path to the resource file. The assembly name is retrieved automatically.</param>
         /// <returns>A new WriteableBitmap containing the pixel data.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static WriteableBitmap FromResource(string relativePath)
         {
-            var fullName = Assembly.GetCallingAssembly().FullName ?? throw new ArgumentException("Assembly FullName is null");
+            return FromResource(Assembly.GetCallingAssembly(), relativePath);
+        }
+
+        /// <summary>
+        /// Loads an image from the specified assembly's resource file and returns a new WriteableBitmap.
+        /// This overload avoids the <see cref="Assembly.GetCallingAssembly"/> stack walk, which makes it robust under trimming and Native AOT.
+        /// </summary>
+        /// <param name="assembly">The assembly that contains the WPF resource.</param>
+        /// <param name="relativePath">Only the relative path to the resource file.</param>
+        /// <returns>A new WriteableBitmap containing the pixel data.</returns>
+        public static WriteableBitmap FromResource(Assembly assembly, string relativePath)
+        {
+            ArgumentNullException.ThrowIfNull(assembly);
+            var fullName = assembly.FullName ?? throw new ArgumentException("Assembly FullName is null", nameof(assembly));
             var asmName = new AssemblyName(fullName).Name;
             return FromContent(asmName + ";component/" + relativePath);
         }

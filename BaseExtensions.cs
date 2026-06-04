@@ -426,7 +426,7 @@ namespace System.Windows.Media.Imaging
         /// <summary>
         /// Sets a row of pixels in the WriteableBitmap.
         /// </summary>
-        public static void SetRow(this WriteableBitmap bmp, int row, int[] pixels)
+        public static void SetRow(this WriteableBitmap bmp, int row, ReadOnlySpan<int> pixels)
         {
             if (bmp == null)
                 throw new ArgumentNullException(nameof(bmp));
@@ -434,11 +434,8 @@ namespace System.Windows.Media.Imaging
             if (row < 0 || row >= bmp.PixelHeight)
                 throw new ArgumentOutOfRangeException(nameof(row), "Row index is out of bounds.");
 
-            if (pixels == null)
-                throw new ArgumentNullException(nameof(pixels));
-
             if (pixels.Length != bmp.PixelWidth)
-                throw new ArgumentException("The number of pixels in the array must match the width of the bitmap.", nameof(pixels));
+                throw new ArgumentException("The number of pixels must match the width of the bitmap.", nameof(pixels));
 
             using var context = bmp.GetBitmapContext();
             fixed (int* pixelPtr = pixels)

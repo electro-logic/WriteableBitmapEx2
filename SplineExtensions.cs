@@ -124,7 +124,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, cx1, cy1, cx2, cy2, x2, y2, cx3, cx4 ..., xn, yn).</param>
         /// <param name="color">The color for the spline.</param>
-        public static void DrawBeziers(this WriteableBitmap bmp, int[] points, Color color)
+        public static void DrawBeziers(this WriteableBitmap bmp, ReadOnlySpan<int> points, Color color)
         {
             var col = ToColorInt(color);
             bmp.DrawBeziers(points, col);
@@ -138,7 +138,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, cx1, cy1, cx2, cy2, x2, y2, cx3, cx4 ..., xn, yn).</param>
         /// <param name="color">The color for the spline.</param>
-        public static void DrawBeziers(this WriteableBitmap bmp, int[] points, int color)
+        public static void DrawBeziers(this WriteableBitmap bmp, ReadOnlySpan<int> points, int color)
         {
             int x1 = points[0];
             int y1 = points[1];
@@ -235,7 +235,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void DrawCurve(this WriteableBitmap bmp, int[] points, float tension, Color color)
+        public static void DrawCurve(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, Color color)
         {
             var col = ToColorInt(color);
             bmp.DrawCurve(points, tension, col);
@@ -249,7 +249,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void DrawCurve(this WriteableBitmap bmp, int[] points, float tension, int color)
+        public static void DrawCurve(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, int color)
         {
             using var context = bmp.GetBitmapContext();
             // Use refs for faster access (really important!) speeds up a lot!
@@ -278,7 +278,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void DrawCurveClosed(this WriteableBitmap bmp, int[] points, float tension, Color color)
+        public static void DrawCurveClosed(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, Color color)
         {
             var col = ToColorInt(color);
             bmp.DrawCurveClosed(points, tension, col);
@@ -292,7 +292,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void DrawCurveClosed(this WriteableBitmap bmp, int[] points, float tension, int color)
+        public static void DrawCurveClosed(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, int color)
         {
             using var context = bmp.GetBitmapContext();
             // Use refs for faster access (really important!) speeds up a lot!

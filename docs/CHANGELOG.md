@@ -21,6 +21,14 @@ multi-platform flavors. This is a **breaking** release — see *Changed* and *Re
 - SDK-style NuGet packaging from the library project (XML docs, symbol package `.snupkg`, readme), plus a
   `nuget.config` registering the local private feed, a `pack.cmd` wrapper, an `.editorconfig`, and this
   `docs/` folder.
+- **`ReadOnlySpan<int>` support** across the point/polygon/curve drawing methods (`DrawPolyline`,
+  `DrawPolylineAa`, `DrawBeziers`, `DrawCurve`/`DrawCurveClosed`, `FillPolygon`, `FillBeziers`,
+  `FillCurve`/`FillCurveClosed`) and `SetRow`, so callers can pass `stackalloc` buffers or array slices
+  without allocating an `int[]`. Existing `int[]` calls keep working via implicit conversion.
+- **Trim / Native AOT readiness:** `IsTrimmable` and `IsAotCompatible` are enabled and the trim/AOT
+  analyzers pass clean. `BitmapFactory.FromResource(string)` is marked `[MethodImpl(NoInlining)]` to keep
+  `Assembly.GetCallingAssembly` correct under aggressive inlining, and a reflection-free
+  `FromResource(Assembly, string)` overload was added for AOT-robust resource loading.
 
 ### Changed
 - **`ConvertColor` was refactored into a `Color` extension method and renamed `ToColorInt()`**

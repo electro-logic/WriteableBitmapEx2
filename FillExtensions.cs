@@ -486,7 +486,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points of the polygon in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
-        public static void FillPolygon(this WriteableBitmap bmp, int[] points, Color color)
+        public static void FillPolygon(this WriteableBitmap bmp, ReadOnlySpan<int> points, Color color)
         {
             var col = ToColorInt(color);
             bmp.FillPolygon(points, col);
@@ -500,7 +500,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points of the polygon in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
         /// <param name="doAlphaBlend">True if alpha blending should be performed or false if not.</param>
-        public static void FillPolygon(this WriteableBitmap bmp, int[] points, int color, bool doAlphaBlend = false)
+        public static void FillPolygon(this WriteableBitmap bmp, ReadOnlySpan<int> points, int color, bool doAlphaBlend = false)
         {
             using var context = bmp.GetBitmapContext();
             // Use refs for faster access (really important!) speeds up a lot!
@@ -1070,7 +1070,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, cx1, cy1, cx2, cy2, x2, y2, cx3, cx4 ..., xn, yn).</param>
         /// <param name="color">The color for the spline.</param>
-        public static void FillBeziers(this WriteableBitmap bmp, int[] points, Color color)
+        public static void FillBeziers(this WriteableBitmap bmp, ReadOnlySpan<int> points, Color color)
         {
             var col = ToColorInt(color);
             bmp.FillBeziers(points, col);
@@ -1084,7 +1084,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, cx1, cy1, cx2, cy2, x2, y2, cx3, cx4 ..., xn, yn).</param>
         /// <param name="color">The color for the spline.</param>
-        public static void FillBeziers(this WriteableBitmap bmp, int[] points, int color)
+        public static void FillBeziers(this WriteableBitmap bmp, ReadOnlySpan<int> points, int color)
         {
             // Compute Bezier curve
             int x1 = points[0];
@@ -1202,7 +1202,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void FillCurve(this WriteableBitmap bmp, int[] points, float tension, Color color)
+        public static void FillCurve(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, Color color)
         {
             var col = ToColorInt(color);
             bmp.FillCurve(points, tension, col);
@@ -1216,7 +1216,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void FillCurve(this WriteableBitmap bmp, int[] points, float tension, int color)
+        public static void FillCurve(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, int color)
         {
             // First segment
             var list = ComputeSegmentPoints(points[0], points[1], points[0], points[1], points[2], points[3], points[4],
@@ -1246,7 +1246,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void FillCurveClosed(this WriteableBitmap bmp, int[] points, float tension, Color color)
+        public static void FillCurveClosed(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, Color color)
         {
             var col = ToColorInt(color);
             bmp.FillCurveClosed(points, tension, col);
@@ -1260,7 +1260,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points for the curve in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, x3, y3, x4, y4, x1, x2 ..., xn, yn).</param>
         /// <param name="tension">The tension of the curve defines the shape. Usually between 0 and 1. 0 would be a straight line.</param>
         /// <param name="color">The color for the spline.</param>
-        public static void FillCurveClosed(this WriteableBitmap bmp, int[] points, float tension, int color)
+        public static void FillCurveClosed(this WriteableBitmap bmp, ReadOnlySpan<int> points, float tension, int color)
         {
             int pn = points.Length;
 

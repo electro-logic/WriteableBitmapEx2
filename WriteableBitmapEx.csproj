@@ -7,6 +7,10 @@
 		<AssemblyDescription>WPF Extension methods for the WriteableBitmap</AssemblyDescription>
 		<Version>2.0.0</Version>
 
+		<!-- Trim/AOT readiness: the library's own code is trim/AOT-safe and the analyzers enforce it. -->
+		<IsTrimmable>true</IsTrimmable>
+		<IsAotCompatible>true</IsAotCompatible>
+
 		<!-- API docs (CS1591/CS1573 suppressed: not every public member is fully documented yet) -->
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>

@@ -35,7 +35,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points of the polyline in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
-        public static void DrawPolyline(this WriteableBitmap bmp, int[] points, Color color)
+        public static void DrawPolyline(this WriteableBitmap bmp, ReadOnlySpan<int> points, Color color)
         {
             var col = ToColorInt(color);
             bmp.DrawPolyline(points, col);
@@ -47,7 +47,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points of the polyline in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
-        public static void DrawPolyline(this WriteableBitmap bmp, int[] points, int color)
+        public static void DrawPolyline(this WriteableBitmap bmp, ReadOnlySpan<int> points, int color)
         {
             using var context = bmp.GetBitmapContext();
             // Use refs for faster access (really important!) speeds up a lot!
@@ -73,7 +73,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points of the polyline in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
-        public static void DrawPolylineAa(this WriteableBitmap bmp, int[] points, Color color)
+        public static void DrawPolylineAa(this WriteableBitmap bmp, ReadOnlySpan<int> points, Color color)
         {
             var col = ToColorInt(color);
             bmp.DrawPolylineAa(points, col);
@@ -86,7 +86,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points of the polyline in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
         /// <param name="thickness">The thickness for the line.</param>
-        public static void DrawPolylineAa(this WriteableBitmap bmp, int[] points, Color color, int thickness)
+        public static void DrawPolylineAa(this WriteableBitmap bmp, ReadOnlySpan<int> points, Color color, int thickness)
         {
             var col = ToColorInt(color);
             bmp.DrawPolylineAa(points, col, thickness);
@@ -98,7 +98,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="bmp">The WriteableBitmap.</param>
         /// <param name="points">The points of the polyline in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
-        public static void DrawPolylineAa(this WriteableBitmap bmp, int[] points, int color)
+        public static void DrawPolylineAa(this WriteableBitmap bmp, ReadOnlySpan<int> points, int color)
         {
             using var context = bmp.GetBitmapContext();
             // Use refs for faster access (really important!) speeds up a lot!
@@ -125,7 +125,7 @@ namespace System.Windows.Media.Imaging
         /// <param name="points">The points of the polyline in x and y pairs, therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).</param>
         /// <param name="color">The color for the line.</param>
         /// <param name="thickness">The thickness for the line.</param>
-        public static void DrawPolylineAa(this WriteableBitmap bmp, int[] points, int color, int thickness)
+        public static void DrawPolylineAa(this WriteableBitmap bmp, ReadOnlySpan<int> points, int color, int thickness)
         {
             using var context = bmp.GetBitmapContext();
             // Use refs for faster access (really important!) speeds up a lot!
