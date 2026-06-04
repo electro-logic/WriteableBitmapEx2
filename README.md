@@ -1,66 +1,71 @@
 # WriteableBitmapEx v2
 
+**WriteableBitmapEx** is a collection of fast, GDI+ like extension methods for the WPF
+[`WriteableBitmap`](https://learn.microsoft.com/dotnet/api/system.windows.media.imaging.writeablebitmap).
+It manipulates the bitmap's back buffer directly for image processing and procedural 2D drawing — pixels,
+lines, shapes, fills, splines, text, blitting, filtering, transformations and conversions.
+
 Project based on https://github.com/reneschulte/WriteableBitmapEx
 
-What's changed
-- Visual Studio 2022 / .NET 9 support
-- RotateFree rewritten from scratch (10x faster)
-- New Binning, SetRow and CropRelative method
-- ConvertColor refactored to extension method and renamed ToColorInt()
-- Removed legacy Silverlight, Windows Phone, and UWP support
-- Removed samples projects and legacy unit tests to simplify the code base
+## What's changed in v2
 
-# Features
+- **.NET 10 / Visual Studio 2026** support (WPF only)
+- `RotateFree` rewritten from scratch (~10× faster)
+- New `Binning`, `SetRow` and `CropRelative` methods
+- `ConvertColor` refactored into a `Color` extension method and renamed **`ToColorInt()`**
+- **`ReadOnlySpan<int>` inputs** on the point/polygon/curve methods and `SetRow` (pass `stackalloc`
+  buffers or array slices with no allocation; existing `int[]` calls keep working)
+- **Trim / Native AOT ready** (`IsTrimmable`/`IsAotCompatible`, analyzers pass clean) with a reflection-free
+  `BitmapFactory.FromResource(Assembly, string)` overload
+- Removed legacy Silverlight, Windows Phone and UWP support; removed sample projects and legacy unit tests
+- Added an xUnit test suite, a BenchmarkDotNet harness, documentation and SDK-style NuGet packaging
 
-*   Base
-    *   Support for System.Windows.Media.Color (alpha premultiplication will be performed)
-    *   Also overloads for faster int32 as color (assumed to be already alpha premultiplied)
-    *   SetPixel method with various overloads
-    *   GetPixel method to get the pixel color at a specified x, y coordinate
-    *   Fast Clear methods
-    *   Fast Clone method to copy a WriteableBitmap
-    *   ForEach method to apply a given function to all pixels of the bitmap
-*   Transformation
-    *   Crop method to extract a defined region
-    *   Resize method with support for bilinear interpolation and nearest neighbor
-    *   Rotate in 90° steps clockwise and any arbitrary angle
-    *   Flip vertical and horizontal
-*   Shapes
-    *   Fast line drawing algorithms including various anti-aliased algorithm
-    *   Variable stroke thickness, dotted and penned / stamp lines
-    *   Ellipse, polyline, quad, rectangle and triangle
-    *   Cubic Beziér, Cardinal spline and closed curves
-*   Filled shapes
-    *   Fast ellipse and rectangle fill method
-    *   Triangle, quad, simple and complex polygons
-    *   Beziér and Cardinal spline curves
-*	Text
-	*	Fill and draw outline of text strings. text is highly flexible, it is instance of `FormattedText` thus any text and characted which is supported by wpf, can be rendered (options like `FlowDirection`, `FontWeight` and ... can be changed).
-*   Blitting
-    *   Different blend modes including alpha, additive, subtractive, multiply, mask and none
-    *   Optimized fast path for non blended blitting
-    *   Special BlitRender to apply affine transformation with bilinear interpolation
-*   Filtering
-    *   Convolution, Blur
-    *   Brightness, contrast, gamma adjustments
-    *   Gray/brightness, invert
-*   Conversion
-    *   Convert a WriteableBitmap to a byte array
-    *   Create a WriteableBitmap from a byte array
-    *   Create a WriteableBitmap easily from the application resource or content
-    *   Create a WriteableBitmap from an any platform supported image stream
-    *   Write a WriteableBitmap as a TGA image to a stream
-    *   Separate extension method to save as a PNG image
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full history and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+for the design and the `BitmapContext` model.
 
-# Usage examples
+## Requirements
+
+- .NET 10 SDK or later, built with Visual Studio 2026 / the .NET 10 SDK
+- A WPF target: `net10.0-windows` with `<UseWPF>true</UseWPF>`
+
+Pixels are premultiplied ARGB (`Pbgra32`) 32-bit integers, matching WPF's internal `WriteableBitmap` buffer.
+
+## Install
+
+The package is published to a private feed (`D:\Projects\PrivateNuget`). With the repository's
+[`nuget.config`](nuget.config) in place:
+
+```powershell
+dotnet add package WriteableBitmapEx --version 2.0.0
+```
+
+## Features
+
+- **Base** — `Color` support (alpha is premultiplied) plus faster `int32`-color overloads (already
+  premultiplied); `SetPixel`/`GetPixel`; fast `Clear`; fast `Clone`; `ForEach`; `SetRow`; `ToColorInt()`.
+- **Transformation** — `Crop`/`CropRelative`, `Resize` (bilinear & nearest neighbor), `Rotate` (90° steps)
+  and `RotateFree` (arbitrary angle), `Flip` (vertical/horizontal), `Binning`.
+- **Shapes** — fast line algorithms incl. several anti-aliased variants; variable stroke thickness, dotted
+  and penned/stamp lines; ellipse, polyline, quad, rectangle and triangle.
+- **Splines** — cubic Bézier, Cardinal spline and closed curves.
+- **Filled shapes** — fast ellipse and rectangle fills; triangle, quad, simple & complex polygons; Bézier
+  and Cardinal spline curves.
+- **Text** — fill and draw the outline of text strings via WPF `FormattedText` (any text WPF can render,
+  with full control over `FontWeight`, `FlowDirection`, etc.).
+- **Blitting** — alpha, additive, subtractive, multiply, mask and none blend modes; an optimized fast path
+  for non-blended blits; `BlitRender` for affine transforms with bilinear interpolation.
+- **Filtering** — convolution, blur; brightness, contrast and gamma adjustments; gray/brightness and invert.
+- **Conversion** — `WriteableBitmap` ⇄ byte array; create from an application resource/content or any
+  platform-supported image stream; write as a TGA image.
+
+## Usage examples
 
 ```cs
 // Initialize the WriteableBitmap with size 512x512 and set it as source of an Image control
 WriteableBitmap writeableBmp = BitmapFactory.New(512, 512);
 ImageControl.Source = writeableBmp;
-using(writeableBmp.GetBitmapContext())
+using (writeableBmp.GetBitmapContext())
 {
-
    // Load an image from the calling Assembly's resources via the relative path
    writeableBmp = BitmapFactory.New(1, 1).FromResource("Data/flower2.png");
 
@@ -76,19 +81,16 @@ using(writeableBmp.GetBitmapContext())
    // Green line from P1(1, 2) to P2(30, 40)
    writeableBmp.DrawLine(1, 2, 30, 40, Colors.Green);
 
-   // Line from P1(1, 2) to P2(30, 40) using the fastest draw line method 
-   int[] pixels = writeableBmp.Pixels;
-   int w = writeableBmp.PixelWidth;
-   int h = writeableBmp.PixelHeight;
-   WriteableBitmapExtensions.DrawLine(pixels, w, h, 1, 2, 30, 40, myIntColor);
-
    // Blue anti-aliased line from P1(10, 20) to P2(50, 70) with a stroke of 5
    writeableBmp.DrawLineAa(10, 20, 50, 70, Colors.Blue, 5);
-   
-   // Fills a text on the bitmap, Font, size, weight and almost any option is changable, all text supported with WPF is also supported here including Persian, Arabic, Chinese etc
-   var formattedText = new FormattedText("Test String", CultureInfo.GetCultureInfo("en-us"), FlowDirection.LeftToRight, new Typeface(new FontFamily("Sans MS"), FontStyles.Normal, FontWeights.Medium, FontStretches.Normal), 80.0, System.Windows.Media.Brushes.Black);
+
+   // Fill text on the bitmap; font, size, weight and almost any option is changeable
+   var formattedText = new FormattedText("Test String", CultureInfo.GetCultureInfo("en-us"),
+       FlowDirection.LeftToRight,
+       new Typeface(new FontFamily("Sans MS"), FontStyles.Normal, FontWeights.Medium, FontStretches.Normal),
+       80.0, Brushes.Black, 1.0);
    writeableBmp.FillText(formattedText, 100, 100, Colors.Blue, 5);
-   
+
    // Black triangle with the points P1(10, 5), P2(20, 40) and P3(30, 10)
    writeableBmp.DrawTriangle(10, 5, 20, 40, 30, 10, Colors.Black);
 
@@ -98,50 +100,64 @@ using(writeableBmp.GetBitmapContext())
    // Filled blue ellipse with the center point P1(2, 2) that is 8px wide and 5px high
    writeableBmp.FillEllipseCentered(2, 2, 8, 5, Colors.Blue);
 
-   // Closed green polyline with P1(10, 5), P2(20, 40), P3(30, 30) and P4(7, 8)
-   int[] p = new int[] { 10, 5, 20, 40, 30, 30, 7, 8, 10, 5 };
+   // Closed green polyline. The point arrays accept ReadOnlySpan<int>, so a stackalloc buffer
+   // (or an array slice) can be passed without allocating an int[].
+   Span<int> p = stackalloc int[] { 10, 5, 20, 40, 30, 30, 7, 8, 10, 5 };
    writeableBmp.DrawPolyline(p, Colors.Green);
 
-   // Cubic Beziér curve from P1(5, 5) to P4(20, 7) 
-   // with the control points P2(10, 15) and P3(15, 0)
-   writeableBmp.DrawBezier(5, 5, 10, 15, 15, 0, 20, 7,  Colors.Purple);
+   // Cubic Bézier curve from P1(5, 5) to P4(20, 7) with control points P2(10, 15) and P3(15, 0)
+   writeableBmp.DrawBezier(5, 5, 10, 15, 15, 0, 20, 7, Colors.Purple);
 
-   // Cardinal spline with a tension of 0.5 
-   // through the points P1(10, 5), P2(20, 40) and P3(30, 30)
-   int[] pts = new int[] { 10, 5, 20, 40, 30, 30};
-   writeableBmp.DrawCurve(pts, 0.5,  Colors.Yellow);
-
-   // A filled Cardinal spline with a tension of 0.5 
-   // through the points P1(10, 5), P2(20, 40) and P3(30, 30) 
-   writeableBmp.FillCurveClosed(pts, 0.5,  Colors.Green);
+   // Cardinal spline with a tension of 0.5 through P1(10, 5), P2(20, 40) and P3(30, 30)
+   int[] pts = { 10, 5, 20, 40, 30, 30 };
+   writeableBmp.DrawCurve(pts, 0.5, Colors.Yellow);
+   writeableBmp.FillCurveClosed(pts, 0.5, Colors.Green);
 
    // Blit a bitmap using the additive blend mode at P1(10, 10)
    writeableBmp.Blit(new Point(10, 10), bitmap, sourceRect, Colors.White, WriteableBitmapExtensions.BlendMode.Additive);
 
    // Override all pixels with a function that changes the color based on the coordinate
    writeableBmp.ForEach((x, y, color) => Color.FromArgb(color.A, (byte)(color.R / 2), (byte)(x * y), 100));
-
 } // Invalidate and present in the Dispose call
 
-// Take snapshot
+// Convert a Color to a premultiplied ARGB pixel value
+int packed = Colors.CornflowerBlue.ToColorInt();
+
+// Take a snapshot
 var clone = writeableBmp.Clone();
 
 // Save to a TGA image stream (file for example)
 writeableBmp.WriteTga(stream);
 
-// Crops the WriteableBitmap to a region starting at P1(5, 8) and 10px wide and 10px high
+// Crop to a region starting at P1(5, 8), 10px wide and 10px high
 var cropped = writeableBmp.Crop(5, 8, 10, 10);
 
-// Rotates a copy of the WriteableBitmap 90 degress clockwise and returns the new copy
+// Rotate a copy 90° clockwise
 var rotated = writeableBmp.Rotate(90);
 
-// Flips a copy of the WriteableBitmap around the horizontal axis and returns the new copy
-var flipped = writeableBmp.Flip(FlipMode.Horizontal);
+// Flip a copy around the horizontal axis
+var flipped = writeableBmp.Flip(WriteableBitmapExtensions.FlipMode.Horizontal);
 
-// Resizes the WriteableBitmap to 200px wide and 300px high using bilinear interpolation
+// Resize using bilinear interpolation
 var resized = writeableBmp.Resize(200, 300, WriteableBitmapExtensions.Interpolation.Bilinear);
 ```
 
-# Additional Information
+## Build, test, pack
 
-Original blog posts: https://kodierer.blogspot.com/search/label/WriteableBitmapEx
+```powershell
+dotnet build WriteableBitmapEx.sln -c Release                 # build library + tests + benchmarks
+dotnet test  WriteableBitmapEx.Tests -c Release               # pixel/correctness tests (STA via Xunit.StaFact)
+dotnet run   -c Release --project WriteableBitmapEx.Benchmarks -- --filter *Clear*   # benchmarks
+.\pack.cmd                                                     # dotnet pack -> D:\Projects\PrivateNuget
+```
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design, the `BitmapContext` lock/ref-count/Pbgra32 model,
+  the source map and the build/test/pack flow.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — release history and migration notes.
+- Original blog posts: https://kodierer.blogspot.com/search/label/WriteableBitmapEx
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2009-2026 Rene Schulte and WriteableBitmapEx Contributors.
