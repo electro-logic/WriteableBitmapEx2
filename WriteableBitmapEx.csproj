@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<TargetFramework>net10.0-windows</TargetFramework>
@@ -6,5 +6,36 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<AssemblyDescription>WPF Extension methods for the WriteableBitmap</AssemblyDescription>
 		<Version>2.0.0</Version>
+
+		<!-- API docs (CS1591/CS1573 suppressed: not every public member is fully documented yet) -->
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+
+		<!-- NuGet package metadata -->
+		<PackageId>WriteableBitmapEx</PackageId>
+		<Title>WriteableBitmapEx</Title>
+		<Authors>Rene Schulte and WriteableBitmapEx Contributors</Authors>
+		<Description>WriteableBitmapEx is a collection of fast, GDI+ like extension methods for the WPF WriteableBitmap. It allows direct manipulation of a bitmap for image processing and procedural drawing: pixels, lines, shapes, fills, splines, text, blitting, filtering, transformations and conversions.</Description>
+		<PackageTags>WriteableBitmap;Bitmap;Graphics;WPF;Drawing;2D;Imaging;Pixels;GDI;dotnet;net10</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/teichgraf/WriteableBitmapEx</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/teichgraf/WriteableBitmapEx</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<Copyright>Copyright (c) 2009-2026 Rene Schulte and WriteableBitmapEx Contributors</Copyright>
+		<PackageReleaseNotes>2.0.0 — Modernized to .NET 10 (WPF). Single net10.0-windows target, legacy platforms removed, ToColorInt/Binning/SetRow/CropRelative API additions, RotateFree rewritten (10x). See docs/CHANGELOG.md.</PackageReleaseNotes>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
+
+	<!-- The test and benchmark projects live in sub-folders; keep their sources out of the library compile. -->
+	<ItemGroup>
+		<Compile Remove="WriteableBitmapEx.Tests\**\*.cs" />
+		<Compile Remove="WriteableBitmapEx.Benchmarks\**\*.cs" />
+	</ItemGroup>
+
+	<!-- Ship the readme inside the package. -->
+	<ItemGroup>
+		<None Update="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
 </Project>
