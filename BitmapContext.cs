@@ -1,8 +1,7 @@
-﻿// WriteableBitmapEx - Collection of extension methods for the WriteableBitmap class.
+// WriteableBitmapEx - Collection of extension methods for the WriteableBitmap class.
 // Copyright (c) 2009-2026 Rene Schulte and WriteableBitmapEx Contributors.
 // Licensed under the MIT License. See the LICENSE file in the project root.
 
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -25,14 +24,27 @@ public enum ReadWriteMode
 }
 
 /// <summary>
-/// A disposable cross-platform wrapper around a WriteableBitmap, allowing a common API for Silverlight + WPF with locking + unlocking if necessary
+/// A disposable wrapper around a <see cref="WriteableBitmap"/> that locks it and exposes its back buffer
+/// as an <c>int*</c> / <see cref="Span{Int32}"/>. Nested contexts on the same bitmap are reference-counted
+/// so the bitmap is locked once and invalidated/unlocked only when the outermost context is disposed.
 /// </summary>
-/// <remarks>Attempting to put as many preprocessor hacks in this file, to keep the rest of the codebase relatively clean</remarks>
+/// <remarks>
+/// The reference-count maps are <see cref="ThreadStaticAttribute">[ThreadStatic]</see>: a WriteableBitmap is
+/// thread-affine, so each bitmap is only ever contextualized on its owning thread. Keeping the maps
+/// per-thread removes any cross-thread locking from the hot path.
+/// </remarks>
 public readonly unsafe struct BitmapContext : IDisposable
 {
     private readonly ReadWriteMode _mode;
-    private static readonly IDictionary<WriteableBitmap, int> UpdateCountByBmp = new ConcurrentDictionary<WriteableBitmap, int>();
-    private static readonly IDictionary<WriteableBitmap, BitmapContextBitmapProperties> BitmapPropertiesByBmp = new ConcurrentDictionary<WriteableBitmap, BitmapContextBitmapProperties>();
+
+    [ThreadStatic]
+    private static Dictionary<WriteableBitmap, int> _updateCountByBmp;
+    [ThreadStatic]
+    private static Dictionary<WriteableBitmap, BitmapContextBitmapProperties> _bitmapPropertiesByBmp;
+
+    private static Dictionary<WriteableBitmap, int> UpdateCountByBmp => _updateCountByBmp ??= [];
+    private static Dictionary<WriteableBitmap, BitmapContextBitmapProperties> BitmapPropertiesByBmp => _bitmapPropertiesByBmp ??= [];
+
     private readonly int _backBufferStride;
 
     /// <summary>
@@ -53,7 +65,7 @@ public readonly unsafe struct BitmapContext : IDisposable
     /// <summary>
     /// Creates an instance of a BitmapContext, with default mode = ReadWrite
     /// </summary>
-    /// <param name="writeableBitmap"></param>
+    /// <param name="writeableBitmap">The bitmap to wrap and lock.</param>
     public BitmapContext(WriteableBitmap writeableBitmap)
         : this(writeableBitmap, ReadWriteMode.ReadWrite)
     {
@@ -62,60 +74,49 @@ public readonly unsafe struct BitmapContext : IDisposable
     /// <summary>
     /// Creates an instance of a BitmapContext, with specified ReadWriteMode
     /// </summary>
-    /// <param name="writeableBitmap"></param>
-    /// <param name="mode"></param>
+    /// <param name="writeableBitmap">The bitmap to wrap and lock.</param>
+    /// <param name="mode">The read/write mode; ReadOnly does not invalidate the bitmap on dispose.</param>
     public BitmapContext(WriteableBitmap writeableBitmap, ReadWriteMode mode)
     {
         WriteableBitmap = writeableBitmap;
         _mode = mode;
 
-        //// Check if it's the Pbgra32 pixel format
-        //if (writeableBitmap.Format != PixelFormats.Pbgra32)
-        //{
-        //   throw new ArgumentException("The input WriteableBitmap needs to have the Pbgra32 pixel format. Use the BitmapFactory.ConvertToPbgra32Format method to automatically convert any input BitmapSource to the right format accepted by this class.", "writeableBitmap");
-        //}
-
+        var updateCounts = UpdateCountByBmp;
+        var properties = BitmapPropertiesByBmp;
         BitmapContextBitmapProperties bitmapProperties;
 
-        lock (UpdateCountByBmp)
+        // Ensure the bitmap is in the (thread-local) dictionary of mapped instances
+        if (!updateCounts.ContainsKey(writeableBitmap))
         {
-            // Ensure the bitmap is in the dictionary of mapped Instances
-            if (!UpdateCountByBmp.ContainsKey(writeableBitmap))
+            // First context for this bitmap on this thread: lock it and capture its properties
+            updateCounts[writeableBitmap] = 1;
+            writeableBitmap.Lock();
+
+            bitmapProperties = new BitmapContextBitmapProperties()
             {
-                // Set UpdateCount to 1 for this bitmap
-                UpdateCountByBmp.Add(writeableBitmap, 1);
-
-                // Lock the bitmap
-                writeableBitmap.Lock();
-
-                bitmapProperties = new BitmapContextBitmapProperties()
-                {
-                    BackBufferStride = writeableBitmap.BackBufferStride,
-                    Pixels = (int*)writeableBitmap.BackBuffer,
-                    Width = writeableBitmap.PixelWidth,
-                    Height = writeableBitmap.PixelHeight,
-                    Format = writeableBitmap.Format
-                };
-                BitmapPropertiesByBmp.Add(
-                    writeableBitmap,
-                    bitmapProperties);
-            }
-            else
-            {
-                // For previously contextualized bitmaps increment the update count
-                IncrementRefCount(writeableBitmap);
-                bitmapProperties = BitmapPropertiesByBmp[writeableBitmap];
-            }
-
-            _backBufferStride = bitmapProperties.BackBufferStride;
-            Width = bitmapProperties.Width;
-            Height = bitmapProperties.Height;
-            Format = bitmapProperties.Format;
-            Pixels = bitmapProperties.Pixels;
-
-            double width = _backBufferStride / WriteableBitmapExtensions.SizeOfArgb;
-            Length = (int)(width * Height);
+                BackBufferStride = writeableBitmap.BackBufferStride,
+                Pixels = (int*)writeableBitmap.BackBuffer,
+                Width = writeableBitmap.PixelWidth,
+                Height = writeableBitmap.PixelHeight,
+                Format = writeableBitmap.Format
+            };
+            properties[writeableBitmap] = bitmapProperties;
         }
+        else
+        {
+            // Nested context: increment the update count and reuse the captured properties
+            updateCounts[writeableBitmap]++;
+            bitmapProperties = properties[writeableBitmap];
+        }
+
+        _backBufferStride = bitmapProperties.BackBufferStride;
+        Width = bitmapProperties.Width;
+        Height = bitmapProperties.Height;
+        Format = bitmapProperties.Format;
+        Pixels = bitmapProperties.Pixels;
+
+        double width = _backBufferStride / WriteableBitmapExtensions.SizeOfArgb;
+        Length = (int)(width * Height);
     }
 
     /// <summary>
@@ -146,9 +147,16 @@ public readonly unsafe struct BitmapContext : IDisposable
     }
 
     /// <summary>
+    /// Returns the pixel buffer as a <see cref="Span{Int32}"/> for allocation-free, delegate-free iteration
+    /// over the locked back buffer. Only valid for the lifetime of this context.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Span<int> AsSpan() => new(Pixels, Length);
+
+    /// <summary>
     /// Performs a Copy operation from source to destination BitmapContext
     /// </summary>
-    /// <remarks>Equivalent to calling Buffer.BlockCopy in Silverlight, or native memcpy in WPF</remarks>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void BlockCopy(BitmapContext src, int srcOffset, BitmapContext dest, int destOffset, int count)
     {
@@ -158,9 +166,19 @@ public readonly unsafe struct BitmapContext : IDisposable
     /// <summary>
     /// Performs a Copy operation from source Array to destination BitmapContext
     /// </summary>
-    /// <remarks>Equivalent to calling Buffer.BlockCopy in Silverlight, or native memcpy in WPF</remarks>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void BlockCopy(int[] src, int srcOffset, BitmapContext dest, int destOffset, int count)
+    {
+        BlockCopy((ReadOnlySpan<int>)src, srcOffset, dest, destOffset, count);
+    }
+
+    /// <summary>
+    /// Performs a Copy operation from a source span to a destination BitmapContext
+    /// </summary>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void BlockCopy(ReadOnlySpan<int> src, int srcOffset, BitmapContext dest, int destOffset, int count)
     {
         fixed (int* srcPtr = src)
         {
@@ -171,7 +189,7 @@ public readonly unsafe struct BitmapContext : IDisposable
     /// <summary>
     /// Performs a Copy operation from source Array to destination BitmapContext
     /// </summary>
-    /// <remarks>Equivalent to calling Buffer.BlockCopy in Silverlight, or native memcpy in WPF</remarks>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void BlockCopy(byte[] src, int srcOffset, BitmapContext dest, int destOffset, int count)
     {
@@ -184,7 +202,7 @@ public readonly unsafe struct BitmapContext : IDisposable
     /// <summary>
     /// Performs a Copy operation from source BitmapContext to destination Array
     /// </summary>
-    /// <remarks>Equivalent to calling Buffer.BlockCopy in Silverlight, or native memcpy in WPF</remarks>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void BlockCopy(BitmapContext src, int srcOffset, byte[] dest, int destOffset, int count)
     {
@@ -197,9 +215,19 @@ public readonly unsafe struct BitmapContext : IDisposable
     /// <summary>
     /// Performs a Copy operation from source BitmapContext to destination Array
     /// </summary>
-    /// <remarks>Equivalent to calling Buffer.BlockCopy in Silverlight, or native memcpy in WPF</remarks>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void BlockCopy(BitmapContext src, int srcOffset, int[] dest, int destOffset, int count)
+    {
+        BlockCopy(src, srcOffset, (Span<int>)dest, destOffset, count);
+    }
+
+    /// <summary>
+    /// Performs a Copy operation from a source BitmapContext to a destination span
+    /// </summary>
+    /// <remarks>Equivalent to a native memcpy.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void BlockCopy(BitmapContext src, int srcOffset, Span<int> dest, int destOffset, int count)
     {
         fixed (int* destPtr = dest)
         {
@@ -217,14 +245,15 @@ public readonly unsafe struct BitmapContext : IDisposable
     }
 
     /// <summary>
-    /// Disposes the BitmapContext, unlocking it and invalidating if WPF
+    /// Disposes the BitmapContext, unlocking the bitmap and invalidating it (in ReadWrite mode)
+    /// when the outermost nested context is disposed.
     /// </summary>
     public void Dispose()
     {
-        // Decrement the update count. If it hits zero
+        // Decrement the update count. If it hits zero this is the outermost context.
         if (DecrementRefCount(WriteableBitmap) == 0)
         {
-            // Remove this bitmap from the update map
+            // Remove this bitmap from the (thread-local) update map
             UpdateCountByBmp.Remove(WriteableBitmap);
             BitmapPropertiesByBmp.Remove(WriteableBitmap);
 
@@ -239,19 +268,15 @@ public readonly unsafe struct BitmapContext : IDisposable
         }
     }
 
-    private static void IncrementRefCount(WriteableBitmap target)
-    {
-        UpdateCountByBmp[target]++;
-    }
-
     private static int DecrementRefCount(WriteableBitmap target)
     {
-        if (!UpdateCountByBmp.TryGetValue(target, out int current))
+        var counts = UpdateCountByBmp;
+        if (!counts.TryGetValue(target, out int current))
         {
             return -1;
         }
         current--;
-        UpdateCountByBmp[target] = current;
+        counts[target] = current;
         return current;
     }
 

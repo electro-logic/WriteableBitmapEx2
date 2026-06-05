@@ -503,7 +503,8 @@ public static unsafe partial class WriteableBitmapExtensions
         var pixels = context.Pixels;
         int pn = points.Length;
         int pnh = points.Length >> 1;
-        int[] intersectionsX = new int[pnh];
+        // Stack-allocate the scanline intersection buffer for typical polygons; fall back to the heap only for very large ones.
+        Span<int> intersectionsX = pnh <= 256 ? stackalloc int[256] : new int[pnh];
 
         // Find y min and max (slightly faster than scanning from 0 to height)
         int yMin = h;
@@ -693,7 +694,7 @@ public static unsafe partial class WriteableBitmapExtensions
     /// therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).
     /// </param>
     /// <param name="color">The color for the polygon.</param>
-    public static void FillPolygonsEvenOdd(this WriteableBitmap bmp, int[][] polygons, Color color)
+    public static void FillPolygonsEvenOdd(this WriteableBitmap bmp, ReadOnlySpan<int[]> polygons, Color color)
     {
         var col = ToColorInt(color);
         FillPolygonsEvenOdd(bmp, polygons, col);
@@ -712,7 +713,7 @@ public static unsafe partial class WriteableBitmapExtensions
     /// therefore the array is interpreted as (x1, y1, x2, y2, ..., xn, yn).
     /// </param>
     /// <param name="color">The color for the polygon.</param>
-    public static void FillPolygonsEvenOdd(this WriteableBitmap bmp, int[][] polygons, int color)
+    public static void FillPolygonsEvenOdd(this WriteableBitmap bmp, ReadOnlySpan<int[]> polygons, int color)
     {
         #region Algorithm
 
@@ -814,7 +815,8 @@ public static unsafe partial class WriteableBitmapExtensions
             yMin = 0;
         }
 
-        int[] intersectionsX = new int[edges.Count];
+        // Stack-allocate the scanline intersection buffer for typical edge counts; fall back to the heap for very large polygons.
+        Span<int> intersectionsX = edges.Count <= 256 ? stackalloc int[256] : new int[edges.Count];
 
         LinkedList<Edge> currentEdges = new();
         int e = 0;
