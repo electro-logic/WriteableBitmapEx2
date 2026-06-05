@@ -82,4 +82,10 @@ public class DrawingBenchmarks
 
     [Benchmark]
     public WriteableBitmap RotateFree45() => _bmp.RotateFree(45);
+
+    [Benchmark]
+    public WriteableBitmap Invert() => _bmp.Invert();
+
+    [Benchmark]
+    public WriteableBitmap AdjustBrightness() => _bmp.AdjustBrightness(40);
 }

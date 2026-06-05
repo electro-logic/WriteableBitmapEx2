@@ -2,6 +2,10 @@
 // Copyright (c) 2009-2026 Rene Schulte and WriteableBitmapEx Contributors.
 // Licensed under the MIT License. See the LICENSE file in the project root.
 
+using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+
 namespace System.Windows.Media.Imaging;
 
 /// <summary>
@@ -171,29 +175,33 @@ public static unsafe partial class WriteableBitmapExtensions
         using var srcContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
         var result = BitmapFactory.New(srcContext.Width, srcContext.Height);
         using var resultContext = result.GetBitmapContext();
-        var rp = resultContext.Pixels;
-        var p = srcContext.Pixels;
-        var length = srcContext.Length;
+        InvertCore(srcContext.AsSpan(), resultContext.AsSpan());
+        return result;
+    }
 
-        for (var i = 0; i < length; i++)
+    /// <summary>
+    /// Inverts the RGB channels (keeping alpha). For a premultiplied ARGB pixel this is exactly
+    /// <c>pixel ^ 0x00FFFFFF</c>, which is vectorized with the widest available SIMD width.
+    /// </summary>
+    private static void InvertCore(ReadOnlySpan<int> src, Span<int> dst)
+    {
+        const int rgbMask = 0x00FFFFFF;
+        int i = 0;
+
+        if (System.Numerics.Vector.IsHardwareAccelerated && src.Length >= Vector<int>.Count)
         {
-            // Extract
-            var c = p[i];
-            var a = (c >> 24) & 0x000000FF;
-            var r = (c >> 16) & 0x000000FF;
-            var g = (c >> 8) & 0x000000FF;
-            var b = (c) & 0x000000FF;
-
-            // Invert
-            r = 255 - r;
-            g = 255 - g;
-            b = 255 - b;
-
-            // Set
-            rp[i] = (a << 24) | (r << 16) | (g << 8) | b;
+            var mask = new Vector<int>(rgbMask);
+            int vectorEnd = src.Length - Vector<int>.Count;
+            for (; i <= vectorEnd; i += Vector<int>.Count)
+            {
+                (new Vector<int>(src.Slice(i)) ^ mask).CopyTo(dst.Slice(i));
+            }
         }
 
-        return result;
+        for (; i < src.Length; i++)
+        {
+            dst[i] = src[i] ^ rgbMask;
+        }
     }
 
     #endregion
@@ -294,40 +302,56 @@ public static unsafe partial class WriteableBitmapExtensions
     public static WriteableBitmap AdjustBrightness(this WriteableBitmap bmp, int nLevel)
     {
         using var context = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-        var nWidth = context.Width;
-        var nHeight = context.Height;
-        var px = context.Pixels;
-        var result = BitmapFactory.New(nWidth, nHeight);
-
+        var result = BitmapFactory.New(context.Width, context.Height);
         using (var dest = result.GetBitmapContext())
         {
-            var rp = dest.Pixels;
-            var len = context.Length;
-            for (var i = 0; i < len; i++)
+            AdjustBrightnessCore(context.AsSpan(), dest.AsSpan(), nLevel);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Adds <paramref name="nLevel"/> to each RGB channel (alpha untouched) with clamping to [0, 255].
+    /// This is unsigned byte saturating add/subtract, so it maps directly to AVX2 when available.
+    /// </summary>
+    private static void AdjustBrightnessCore(ReadOnlySpan<int> src, Span<int> dst, int nLevel)
+    {
+        int i = 0;
+        int level = nLevel < 0 ? -nLevel : nLevel;
+
+        if (Avx2.IsSupported && level <= 255 && src.Length >= Vector256<int>.Count)
+        {
+            // Per-pixel bytes are B, G, R, A (little-endian). The delta 0x00LLLLLL adds the level to
+            // B, G and R and 0 to A; byte saturating add/sub gives the same clamp as the scalar path.
+            var delta = Vector256.Create(level | (level << 8) | (level << 16)).AsByte();
+            bool add = nLevel >= 0;
+            int vectorEnd = src.Length - Vector256<int>.Count;
+            for (; i <= vectorEnd; i += Vector256<int>.Count)
             {
-                // Extract
-                var c = px[i];
-                var a = (c >> 24) & 0x000000FF;
-                var r = (c >> 16) & 0x000000FF;
-                var g = (c >> 8) & 0x000000FF;
-                var b = (c) & 0x000000FF;
-
-                // Brightness adjustment
-                r += nLevel;
-                g += nLevel;
-                b += nLevel;
-
-                // Clamp
-                r = r < 0 ? 0 : r > 255 ? 255 : r;
-                g = g < 0 ? 0 : g > 255 ? 255 : g;
-                b = b < 0 ? 0 : b > 255 ? 255 : b;
-
-                // Set
-                rp[i] = (a << 24) | (r << 16) | (g << 8) | b;
+                var pixels = Vector256.Create(src.Slice(i)).AsByte();
+                var adjusted = add ? Avx2.AddSaturate(pixels, delta) : Avx2.SubtractSaturate(pixels, delta);
+                adjusted.AsInt32().CopyTo(dst.Slice(i));
             }
         }
 
-        return result;
+        for (; i < src.Length; i++)
+        {
+            var c = src[i];
+            var a = (c >> 24) & 0x000000FF;
+            var r = (c >> 16) & 0x000000FF;
+            var g = (c >> 8) & 0x000000FF;
+            var b = (c) & 0x000000FF;
+
+            r += nLevel;
+            g += nLevel;
+            b += nLevel;
+
+            r = r < 0 ? 0 : r > 255 ? 255 : r;
+            g = g < 0 ? 0 : g > 255 ? 255 : g;
+            b = b < 0 ? 0 : b > 255 ? 255 : b;
+
+            dst[i] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
     }
 
     /// <summary>
