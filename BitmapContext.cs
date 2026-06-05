@@ -38,9 +38,9 @@ public readonly unsafe struct BitmapContext : IDisposable
     private readonly ReadWriteMode _mode;
 
     [ThreadStatic]
-    private static Dictionary<WriteableBitmap, int> _updateCountByBmp;
+    private static Dictionary<WriteableBitmap, int>? _updateCountByBmp;
     [ThreadStatic]
-    private static Dictionary<WriteableBitmap, BitmapContextBitmapProperties> _bitmapPropertiesByBmp;
+    private static Dictionary<WriteableBitmap, BitmapContextBitmapProperties>? _bitmapPropertiesByBmp;
 
     private static Dictionary<WriteableBitmap, int> UpdateCountByBmp => _updateCountByBmp ??= [];
     private static Dictionary<WriteableBitmap, BitmapContextBitmapProperties> BitmapPropertiesByBmp => _bitmapPropertiesByBmp ??= [];

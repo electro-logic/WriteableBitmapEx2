@@ -130,8 +130,7 @@ public static unsafe partial class WriteableBitmapExtensions
     /// </summary>
     public static WriteableBitmap CropRelative(this WriteableBitmap bmp, Rect relativeRegion)
     {
-        if (bmp == null)
-            return null;
+        ArgumentNullException.ThrowIfNull(bmp);
         if (relativeRegion.Left < 0 || relativeRegion.Top < 0 || relativeRegion.Right > 1 || relativeRegion.Bottom > 1 || relativeRegion.Width <= 0 || relativeRegion.Height <= 0)
             throw new ArgumentOutOfRangeException(nameof(relativeRegion));
 
@@ -150,7 +149,7 @@ public static unsafe partial class WriteableBitmapExtensions
         if (y + height > sourceHeight) height = sourceHeight - y;
 
         if (width <= 0 || height <= 0)
-            return null; // Cropped region has zero dimensions
+            throw new ArgumentException("The relative region maps to an empty pixel region.", nameof(relativeRegion));
 
         return bmp.Crop(x, y, width, height);
     }
@@ -327,10 +326,10 @@ public static unsafe partial class WriteableBitmapExtensions
     #region Rotate
 
     /// <summary>
-    /// Rotates the bitmap in 90° steps clockwise and returns a new rotated WriteableBitmap.
+    /// Rotates the bitmap in 90ï¿½ steps clockwise and returns a new rotated WriteableBitmap.
     /// </summary>
     /// <param name="bmp">The WriteableBitmap.</param>
-    /// <param name="angle">The angle in degrees the bitmap should be rotated in 90° steps clockwise.</param>
+    /// <param name="angle">The angle in degrees the bitmap should be rotated in 90ï¿½ steps clockwise.</param>
     /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
     public static WriteableBitmap Rotate(this WriteableBitmap bmp, int angle)
     {
@@ -340,7 +339,7 @@ public static unsafe partial class WriteableBitmapExtensions
         var h = context.Height;
         var p = context.Pixels;
         var i = 0;
-        WriteableBitmap result = null;
+        WriteableBitmap result = null!;
         angle %= 360;
 
         if (angle is > 0 and <= 90)
@@ -713,7 +712,7 @@ public static unsafe partial class WriteableBitmapExtensions
         var h = context.Height;
         var p = context.Pixels;
         var i = 0;
-        WriteableBitmap result = null;
+        WriteableBitmap result = null!;
 
         if (flipMode == FlipMode.Horizontal)
         {
@@ -760,10 +759,7 @@ public static unsafe partial class WriteableBitmapExtensions
     /// <param name="binning">The binning factor. For example, a binning of 2 will average 2x2 pixel blocks.</param>
     public static unsafe WriteableBitmap Binning(this WriteableBitmap bmp, int binning = 2)
     {
-        if (bmp == null)
-        {
-            return null;
-        }
+        ArgumentNullException.ThrowIfNull(bmp);
         if (bmp.Format.BitsPerPixel != 32)
         {
             throw new ArgumentException("Only 32 bits pixel formats are supported.", nameof(bmp));

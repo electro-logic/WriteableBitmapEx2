@@ -9,8 +9,8 @@ namespace System.Windows.Media.Imaging;
 /// </summary>
 public static unsafe partial class WriteableBitmapExtensions
 {
-    private static int[] leftEdgeX;
-    private static int[] rightEdgeX;
+    private static int[] leftEdgeX = null!;
+    private static int[] rightEdgeX = null!;
 
     private static void AAWidthLine(int width, int height, BitmapContext context, float x1, float y1, float x2, float y2, float lineWidth, int color, Rect? clipRect = null)
     {

@@ -454,7 +454,7 @@ public static unsafe partial class WriteableBitmapExtensions
     /// <param name="shouldClear">If true, the the destination bitmap will be set to all clear (0) before rendering.</param>
     /// <param name="opacity">opacity of the source bitmap to render, between 0 and 1 inclusive</param>
     /// <param name="transform">Transformation to apply</param>
-    public static void BlitRender(this WriteableBitmap bmp, WriteableBitmap source, bool shouldClear = true, float opacity = 1f, GeneralTransform transform = null)
+    public static void BlitRender(this WriteableBitmap bmp, WriteableBitmap source, bool shouldClear = true, float opacity = 1f, GeneralTransform? transform = null)
     {
         const int PRECISION_SHIFT = 10;
         const int PRECISION_VALUE = 1 << PRECISION_SHIFT;

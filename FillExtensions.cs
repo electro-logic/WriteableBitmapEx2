@@ -673,8 +673,12 @@ public static unsafe partial class WriteableBitmapExtensions
         /// A 32-bit signed integer that indicates the relative order of the objects being compared. The return value has the following meanings: Value Meaning Less than zero This object is less than the <paramref name="other"/> parameter.Zero This object is equal to <paramref name="other"/>. Greater than zero This object is greater than <paramref name="other"/>.
         /// </returns>
         /// <param name="other">An object to compare with this object.</param>
-        public int CompareTo(Edge other)
+        public int CompareTo(Edge? other)
         {
+            if (other is null)
+            {
+                return 1;
+            }
             return StartY == other.StartY
                 ? StartX.CompareTo(other.StartX)
                 : StartY.CompareTo(other.StartY);
@@ -825,10 +829,10 @@ public static unsafe partial class WriteableBitmapExtensions
         for (int y = yMin; y <= yMax; y++)
         {
             // Remove edges no longer intersecting
-            LinkedListNode<Edge> node = currentEdges.First;
+            LinkedListNode<Edge>? node = currentEdges.First;
             while (node != null)
             {
-                LinkedListNode<Edge> nextNode = node.Next;
+                LinkedListNode<Edge>? nextNode = node.Next;
                 Edge edge = node.Value;
                 if (edge.EndY <= y)
                 {
