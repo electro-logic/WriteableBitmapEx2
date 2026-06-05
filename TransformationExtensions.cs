@@ -1,859 +1,844 @@
-#region Header
-//
-//   Project:           WriteableBitmapEx - WriteableBitmap extensions
-//   Description:       Collection of transformation extension methods for the WriteableBitmap class.
-//
-//   Changed by:        $Author: unknown $
-//   Changed on:        $Date: 2015-03-05 18:18:24 +0100 (Do, 05 Mrz 2015) $
-//   Changed in:        $Revision: 113191 $
-//   Project:           $URL: https://writeablebitmapex.svn.codeplex.com/svn/trunk/Source/WriteableBitmapEx/WriteableBitmapTransformationExtensions.cs $
-//   Id:                $Id: WriteableBitmapTransformationExtensions.cs 113191 2015-03-05 17:18:24Z unknown $
-//
-//
-//   Copyright © 2009-2015 Rene Schulte and WriteableBitmapEx Contributors
-//
-//   This code is open source. Please read the License.txt for details. No worries, we won't sue you! ;)
-//
-#endregion
+// WriteableBitmapEx - Collection of extension methods for the WriteableBitmap class.
+// Copyright (c) 2009-2026 Rene Schulte and WriteableBitmapEx Contributors.
+// Licensed under the MIT License. See the LICENSE file in the project root.
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace System.Windows.Media.Imaging
+namespace System.Windows.Media.Imaging;
+
+/// <summary>
+/// Collection of transformation extension methods for the WriteableBitmap class.
+/// </summary>
+public static unsafe partial class WriteableBitmapExtensions
 {
+    #region Enums
+
     /// <summary>
-    /// Collection of transformation extension methods for the WriteableBitmap class.
+    /// The interpolation method.
     /// </summary>
-    public static unsafe partial class WriteableBitmapExtensions
+    public enum Interpolation
     {
-        #region Enums
+        /// <summary>
+        /// The nearest neighbor algorithm simply selects the color of the nearest pixel.
+        /// </summary>
+        NearestNeighbor = 0,
 
         /// <summary>
-        /// The interpolation method.
+        /// Linear interpolation in 2D using the average of 3 neighboring pixels.
         /// </summary>
-        public enum Interpolation
-        {
-            /// <summary>
-            /// The nearest neighbor algorithm simply selects the color of the nearest pixel.
-            /// </summary>
-            NearestNeighbor = 0,
+        Bilinear,
+    }
 
-            /// <summary>
-            /// Linear interpolation in 2D using the average of 3 neighboring pixels.
-            /// </summary>
-            Bilinear,
+    /// <summary>
+    /// The mode for flipping.
+    /// </summary>
+    public enum FlipMode
+    {
+        /// <summary>
+        /// Flips the image vertical (around the center of the y-axis).
+        /// </summary>
+        Vertical,
+
+        /// <summary>
+        /// Flips the image horizontal (around the center of the x-axis).
+        /// </summary>
+        Horizontal
+    }
+
+    #endregion
+
+    #region Methods
+
+    #region Crop
+
+    /// <summary>
+    /// Creates a new cropped WriteableBitmap.
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="x">The x coordinate of the rectangle that defines the crop region.</param>
+    /// <param name="y">The y coordinate of the rectangle that defines the crop region.</param>
+    /// <param name="width">The width of the rectangle that defines the crop region.</param>
+    /// <param name="height">The height of the rectangle that defines the crop region.</param>
+    /// <returns>A new WriteableBitmap that is a cropped version of the input.</returns>
+    public static WriteableBitmap Crop(this WriteableBitmap bmp, int x, int y, int width, int height)
+    {
+        var numberOfChannels = bmp.BackBufferStride / bmp.PixelWidth;
+        if (numberOfChannels != SizeOfArgb)
+        {
+            throw new NotSupportedException("The format of this image is not supported, Consider calling BitmapFactory.ConvertToPbgra32Format()");
         }
 
-        /// <summary>
-        /// The mode for flipping.
-        /// </summary>
-        public enum FlipMode
-        {
-            /// <summary>
-            /// Flips the image vertical (around the center of the y-axis).
-            /// </summary>
-            Vertical,
+        using var srcContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+        var srcWidth = srcContext.Width;
+        var srcHeight = srcContext.Height;
 
-            /// <summary>
-            /// Flips the image horizontal (around the center of the x-axis).
-            /// </summary>
-            Horizontal
+        // If the rectangle is completely out of the bitmap
+        if (x > srcWidth || y > srcHeight)
+        {
+            return BitmapFactory.New(0, 0);
         }
 
-        #endregion
-
-        #region Methods
-
-        #region Crop
-
-        /// <summary>
-        /// Creates a new cropped WriteableBitmap.
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="x">The x coordinate of the rectangle that defines the crop region.</param>
-        /// <param name="y">The y coordinate of the rectangle that defines the crop region.</param>
-        /// <param name="width">The width of the rectangle that defines the crop region.</param>
-        /// <param name="height">The height of the rectangle that defines the crop region.</param>
-        /// <returns>A new WriteableBitmap that is a cropped version of the input.</returns>
-        public static WriteableBitmap Crop(this WriteableBitmap bmp, int x, int y, int width, int height)
+        // Clamp to boundaries
+        if (x < 0)
         {
-            var numberOfChannels = bmp.BackBufferStride / bmp.PixelWidth;
-            if (numberOfChannels != SizeOfArgb)
+            x = 0;
+        }
+
+        if (x + width > srcWidth)
+        {
+            width = srcWidth - x;
+        }
+
+        if (y < 0)
+        {
+            y = 0;
+        }
+
+        if (y + height > srcHeight)
+        {
+            height = srcHeight - y;
+        }
+
+        // Copy the pixels line by line using fast BlockCopy
+        var result = BitmapFactory.New(width, height);
+        using var destContext = result.GetBitmapContext();
+        for (var line = 0; line < height; line++)
+        {
+            var srcOff = (((y + line) * srcWidth) + x) * SizeOfArgb;
+            var dstOff = line * width * SizeOfArgb;
+            BitmapContext.BlockCopy(srcContext, srcOff, destContext, dstOff, width * SizeOfArgb);
+        }
+
+        return result;
+    }
+    /// <summary>
+    /// Creates a new cropped WriteableBitmap.
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="region">The rectangle that defines the crop region.</param>
+    /// <returns>A new WriteableBitmap that is a cropped version of the input.</returns>
+    public static WriteableBitmap Crop(this WriteableBitmap bmp, Rect region)
+    {
+        return bmp.Crop((int)region.X, (int)region.Y, (int)region.Width, (int)region.Height);
+    }
+
+    /// <summary>
+    /// Creates a new WriteableBitmap by cropping a region from the source WriteableBitmap.
+    /// The cropping region is specified using relative coordinates (0.0 - 1.0) to the image dimensions.
+    /// </summary>
+    public static WriteableBitmap CropRelative(this WriteableBitmap bmp, Rect relativeRegion)
+    {
+        if (bmp == null)
+            return null;
+        if (relativeRegion.Left < 0 || relativeRegion.Top < 0 || relativeRegion.Right > 1 || relativeRegion.Bottom > 1 || relativeRegion.Width <= 0 || relativeRegion.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(relativeRegion));
+
+        int sourceWidth = bmp.PixelWidth;
+        int sourceHeight = bmp.PixelHeight;
+
+        int x = (int)(relativeRegion.Left * sourceWidth);
+        int y = (int)(relativeRegion.Top * sourceHeight);
+        int width = (int)(relativeRegion.Width * sourceWidth);
+        int height = (int)(relativeRegion.Height * sourceHeight);
+
+        // Adjust for potential rounding issues and ensure the cropped region stays within bounds
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x + width > sourceWidth) width = sourceWidth - x;
+        if (y + height > sourceHeight) height = sourceHeight - y;
+
+        if (width <= 0 || height <= 0)
+            return null; // Cropped region has zero dimensions
+
+        return bmp.Crop(x, y, width, height);
+    }
+
+    #endregion
+
+    #region Resize
+
+    /// <summary>
+    /// Creates a new resized WriteableBitmap.
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="width">The new desired width.</param>
+    /// <param name="height">The new desired height.</param>
+    /// <param name="interpolation">The interpolation method that should be used.</param>
+    /// <returns>A new WriteableBitmap that is a resized version of the input.</returns>
+    public static WriteableBitmap Resize(this WriteableBitmap bmp, int width, int height, Interpolation interpolation)
+    {
+        using var srcContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+        var pd = Resize(srcContext, srcContext.Width, srcContext.Height, width, height, interpolation);
+
+        var result = BitmapFactory.New(width, height);
+        using (var dstContext = result.GetBitmapContext())
+        {
+            BitmapContext.BlockCopy(pd, 0, dstContext, 0, SizeOfArgb * pd.Length);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Creates a new resized bitmap.
+    /// </summary>
+    /// <param name="srcContext">The source context.</param>
+    /// <param name="widthSource">The width of the source pixels.</param>
+    /// <param name="heightSource">The height of the source pixels.</param>
+    /// <param name="width">The new desired width.</param>
+    /// <param name="height">The new desired height.</param>
+    /// <param name="interpolation">The interpolation method that should be used.</param>
+    /// <returns>A new bitmap that is a resized version of the input.</returns>
+    public static int[] Resize(BitmapContext srcContext, int widthSource, int heightSource, int width, int height, Interpolation interpolation)
+    {
+        return Resize(srcContext.Pixels, widthSource, heightSource, width, height, interpolation);
+    }
+
+    /// <summary>
+    /// Creates a new resized bitmap.
+    /// </summary>
+    /// <param name="pixels">The source pixels.</param>
+    /// <param name="widthSource">The width of the source pixels.</param>
+    /// <param name="heightSource">The height of the source pixels.</param>
+    /// <param name="width">The new desired width.</param>
+    /// <param name="height">The new desired height.</param>
+    /// <param name="interpolation">The interpolation method that should be used.</param>
+    /// <returns>A new bitmap that is a resized version of the input.</returns>
+    public static int[] Resize(int* pixels, int widthSource, int heightSource, int width, int height, Interpolation interpolation)
+    {
+        var pd = new int[width * height];
+        var xs = (float)widthSource / width;
+        var ys = (float)heightSource / height;
+
+        float fracx, fracy, ifracx, ifracy, sx, sy, l0, l1, rf, gf, bf;
+        int c, x0, x1, y0, y1;
+        byte c1a, c1r, c1g, c1b, c2a, c2r, c2g, c2b, c3a, c3r, c3g, c3b, c4a, c4r, c4g, c4b;
+        byte a, r, g, b;
+
+        // Nearest Neighbor
+        if (interpolation == Interpolation.NearestNeighbor)
+        {
+            var srcIdx = 0;
+            for (var y = 0; y < height; y++)
             {
-                throw new NotSupportedException("The format of this image is not supported, Consider calling BitmapFactory.ConvertToPbgra32Format()");
+                for (var x = 0; x < width; x++)
+                {
+                    sx = x * xs;
+                    sy = y * ys;
+                    x0 = (int)sx;
+                    y0 = (int)sy;
+
+                    pd[srcIdx++] = pixels[(y0 * widthSource) + x0];
+                }
             }
+        }
 
-            using var srcContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-            var srcWidth = srcContext.Width;
-            var srcHeight = srcContext.Height;
-
-            // If the rectangle is completely out of the bitmap
-            if (x > srcWidth || y > srcHeight)
+        // Bilinear
+        else if (interpolation == Interpolation.Bilinear)
+        {
+            var srcIdx = 0;
+            for (var y = 0; y < height; y++)
             {
-                return BitmapFactory.New(0, 0);
-            }
+                for (var x = 0; x < width; x++)
+                {
+                    sx = x * xs;
+                    sy = y * ys;
+                    x0 = (int)sx;
+                    y0 = (int)sy;
 
-            // Clamp to boundaries
-            if (x < 0)
-            {
-                x = 0;
-            }
+                    // Calculate coordinates of the 4 interpolation points
+                    fracx = sx - x0;
+                    fracy = sy - y0;
+                    ifracx = 1f - fracx;
+                    ifracy = 1f - fracy;
+                    x1 = x0 + 1;
+                    if (x1 >= widthSource)
+                    {
+                        x1 = x0;
+                    }
+                    y1 = y0 + 1;
+                    if (y1 >= heightSource)
+                    {
+                        y1 = y0;
+                    }
 
-            if (x + width > srcWidth)
-            {
-                width = srcWidth - x;
-            }
+                    // Read source color
+                    c = pixels[(y0 * widthSource) + x0];
+                    c1a = (byte)(c >> 24);
+                    c1r = (byte)(c >> 16);
+                    c1g = (byte)(c >> 8);
+                    c1b = (byte)c;
 
-            if (y < 0)
-            {
-                y = 0;
-            }
+                    c = pixels[(y0 * widthSource) + x1];
+                    c2a = (byte)(c >> 24);
+                    c2r = (byte)(c >> 16);
+                    c2g = (byte)(c >> 8);
+                    c2b = (byte)c;
 
-            if (y + height > srcHeight)
-            {
-                height = srcHeight - y;
-            }
+                    c = pixels[(y1 * widthSource) + x0];
+                    c3a = (byte)(c >> 24);
+                    c3r = (byte)(c >> 16);
+                    c3g = (byte)(c >> 8);
+                    c3b = (byte)c;
 
-            // Copy the pixels line by line using fast BlockCopy
-            var result = BitmapFactory.New(width, height);
+                    c = pixels[(y1 * widthSource) + x1];
+                    c4a = (byte)(c >> 24);
+                    c4r = (byte)(c >> 16);
+                    c4g = (byte)(c >> 8);
+                    c4b = (byte)c;
+
+                    // Calculate colors
+                    // Alpha
+                    l0 = (ifracx * c1a) + (fracx * c2a);
+                    l1 = (ifracx * c3a) + (fracx * c4a);
+                    a = (byte)((ifracy * l0) + (fracy * l1));
+
+                    // Red
+                    l0 = (ifracx * c1r) + (fracx * c2r);
+                    l1 = (ifracx * c3r) + (fracx * c4r);
+                    rf = (ifracy * l0) + (fracy * l1);
+
+                    // Green
+                    l0 = (ifracx * c1g) + (fracx * c2g);
+                    l1 = (ifracx * c3g) + (fracx * c4g);
+                    gf = (ifracy * l0) + (fracy * l1);
+
+                    // Blue
+                    l0 = (ifracx * c1b) + (fracx * c2b);
+                    l1 = (ifracx * c3b) + (fracx * c4b);
+                    bf = (ifracy * l0) + (fracy * l1);
+
+                    // Cast to byte
+                    r = (byte)rf;
+                    g = (byte)gf;
+                    b = (byte)bf;
+
+                    // Write destination
+                    pd[srcIdx++] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+            }
+        }
+        return pd;
+    }
+
+    #endregion
+
+    #region Rotate
+
+    /// <summary>
+    /// Rotates the bitmap in 90° steps clockwise and returns a new rotated WriteableBitmap.
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="angle">The angle in degrees the bitmap should be rotated in 90° steps clockwise.</param>
+    /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
+    public static WriteableBitmap Rotate(this WriteableBitmap bmp, int angle)
+    {
+        using var context = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+        // Use refs for faster access (really important!) speeds up a lot!
+        var w = context.Width;
+        var h = context.Height;
+        var p = context.Pixels;
+        var i = 0;
+        WriteableBitmap result = null;
+        angle %= 360;
+
+        if (angle is > 0 and <= 90)
+        {
+            result = BitmapFactory.New(h, w);
             using var destContext = result.GetBitmapContext();
-            for (var line = 0; line < height; line++)
+            var rp = destContext.Pixels;
+            for (var x = 0; x < w; x++)
             {
-                var srcOff = (((y + line) * srcWidth) + x) * SizeOfArgb;
-                var dstOff = line * width * SizeOfArgb;
-                BitmapContext.BlockCopy(srcContext, srcOff, destContext, dstOff, width * SizeOfArgb);
-            }
-
-            return result;
-        }
-        /// <summary>
-        /// Creates a new cropped WriteableBitmap.
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="region">The rectangle that defines the crop region.</param>
-        /// <returns>A new WriteableBitmap that is a cropped version of the input.</returns>
-        public static WriteableBitmap Crop(this WriteableBitmap bmp, Rect region)
-        {
-            return bmp.Crop((int)region.X, (int)region.Y, (int)region.Width, (int)region.Height);
-        }
-
-        /// <summary>
-        /// Creates a new WriteableBitmap by cropping a region from the source WriteableBitmap.
-        /// The cropping region is specified using relative coordinates (0.0 - 1.0) to the image dimensions.
-        /// </summary>
-        public static WriteableBitmap CropRelative(this WriteableBitmap bmp, Rect relativeRegion)
-        {
-            if (bmp == null)
-                return null;
-            if (relativeRegion.Left < 0 || relativeRegion.Top < 0 || relativeRegion.Right > 1 || relativeRegion.Bottom > 1 || relativeRegion.Width <= 0 || relativeRegion.Height <= 0)
-                throw new ArgumentOutOfRangeException(nameof(relativeRegion));
-
-            int sourceWidth = bmp.PixelWidth;
-            int sourceHeight = bmp.PixelHeight;
-
-            int x = (int)(relativeRegion.Left * sourceWidth);
-            int y = (int)(relativeRegion.Top * sourceHeight);
-            int width = (int)(relativeRegion.Width * sourceWidth);
-            int height = (int)(relativeRegion.Height * sourceHeight);
-
-            // Adjust for potential rounding issues and ensure the cropped region stays within bounds
-            if (x < 0) x = 0;
-            if (y < 0) y = 0;
-            if (x + width > sourceWidth) width = sourceWidth - x;
-            if (y + height > sourceHeight) height = sourceHeight - y;
-
-            if (width <= 0 || height <= 0)
-                return null; // Cropped region has zero dimensions
-
-            return bmp.Crop(x, y, width, height);
-        }
-
-        #endregion
-
-        #region Resize
-
-        /// <summary>
-        /// Creates a new resized WriteableBitmap.
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="width">The new desired width.</param>
-        /// <param name="height">The new desired height.</param>
-        /// <param name="interpolation">The interpolation method that should be used.</param>
-        /// <returns>A new WriteableBitmap that is a resized version of the input.</returns>
-        public static WriteableBitmap Resize(this WriteableBitmap bmp, int width, int height, Interpolation interpolation)
-        {
-            using var srcContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-            var pd = Resize(srcContext, srcContext.Width, srcContext.Height, width, height, interpolation);
-
-            var result = BitmapFactory.New(width, height);
-            using (var dstContext = result.GetBitmapContext())
-            {
-                BitmapContext.BlockCopy(pd, 0, dstContext, 0, SizeOfArgb * pd.Length);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Creates a new resized bitmap.
-        /// </summary>
-        /// <param name="srcContext">The source context.</param>
-        /// <param name="widthSource">The width of the source pixels.</param>
-        /// <param name="heightSource">The height of the source pixels.</param>
-        /// <param name="width">The new desired width.</param>
-        /// <param name="height">The new desired height.</param>
-        /// <param name="interpolation">The interpolation method that should be used.</param>
-        /// <returns>A new bitmap that is a resized version of the input.</returns>
-        public static int[] Resize(BitmapContext srcContext, int widthSource, int heightSource, int width, int height, Interpolation interpolation)
-        {
-            return Resize(srcContext.Pixels, widthSource, heightSource, width, height, interpolation);
-        }
-
-        /// <summary>
-        /// Creates a new resized bitmap.
-        /// </summary>
-        /// <param name="pixels">The source pixels.</param>
-        /// <param name="widthSource">The width of the source pixels.</param>
-        /// <param name="heightSource">The height of the source pixels.</param>
-        /// <param name="width">The new desired width.</param>
-        /// <param name="height">The new desired height.</param>
-        /// <param name="interpolation">The interpolation method that should be used.</param>
-        /// <returns>A new bitmap that is a resized version of the input.</returns>
-        public static int[] Resize(int* pixels, int widthSource, int heightSource, int width, int height, Interpolation interpolation)
-        {
-            var pd = new int[width * height];
-            var xs = (float)widthSource / width;
-            var ys = (float)heightSource / height;
-
-            float fracx, fracy, ifracx, ifracy, sx, sy, l0, l1, rf, gf, bf;
-            int c, x0, x1, y0, y1;
-            byte c1a, c1r, c1g, c1b, c2a, c2r, c2g, c2b, c3a, c3r, c3g, c3b, c4a, c4r, c4g, c4b;
-            byte a, r, g, b;
-
-            // Nearest Neighbor
-            if (interpolation == Interpolation.NearestNeighbor)
-            {
-                var srcIdx = 0;
-                for (var y = 0; y < height; y++)
-                {
-                    for (var x = 0; x < width; x++)
-                    {
-                        sx = x * xs;
-                        sy = y * ys;
-                        x0 = (int)sx;
-                        y0 = (int)sy;
-
-                        pd[srcIdx++] = pixels[(y0 * widthSource) + x0];
-                    }
-                }
-            }
-
-            // Bilinear
-            else if (interpolation == Interpolation.Bilinear)
-            {
-                var srcIdx = 0;
-                for (var y = 0; y < height; y++)
-                {
-                    for (var x = 0; x < width; x++)
-                    {
-                        sx = x * xs;
-                        sy = y * ys;
-                        x0 = (int)sx;
-                        y0 = (int)sy;
-
-                        // Calculate coordinates of the 4 interpolation points
-                        fracx = sx - x0;
-                        fracy = sy - y0;
-                        ifracx = 1f - fracx;
-                        ifracy = 1f - fracy;
-                        x1 = x0 + 1;
-                        if (x1 >= widthSource)
-                        {
-                            x1 = x0;
-                        }
-                        y1 = y0 + 1;
-                        if (y1 >= heightSource)
-                        {
-                            y1 = y0;
-                        }
-
-                        // Read source color
-                        c = pixels[(y0 * widthSource) + x0];
-                        c1a = (byte)(c >> 24);
-                        c1r = (byte)(c >> 16);
-                        c1g = (byte)(c >> 8);
-                        c1b = (byte)c;
-
-                        c = pixels[(y0 * widthSource) + x1];
-                        c2a = (byte)(c >> 24);
-                        c2r = (byte)(c >> 16);
-                        c2g = (byte)(c >> 8);
-                        c2b = (byte)c;
-
-                        c = pixels[(y1 * widthSource) + x0];
-                        c3a = (byte)(c >> 24);
-                        c3r = (byte)(c >> 16);
-                        c3g = (byte)(c >> 8);
-                        c3b = (byte)c;
-
-                        c = pixels[(y1 * widthSource) + x1];
-                        c4a = (byte)(c >> 24);
-                        c4r = (byte)(c >> 16);
-                        c4g = (byte)(c >> 8);
-                        c4b = (byte)c;
-
-                        // Calculate colors
-                        // Alpha
-                        l0 = (ifracx * c1a) + (fracx * c2a);
-                        l1 = (ifracx * c3a) + (fracx * c4a);
-                        a = (byte)((ifracy * l0) + (fracy * l1));
-
-                        // Red
-                        l0 = (ifracx * c1r) + (fracx * c2r);
-                        l1 = (ifracx * c3r) + (fracx * c4r);
-                        rf = (ifracy * l0) + (fracy * l1);
-
-                        // Green
-                        l0 = (ifracx * c1g) + (fracx * c2g);
-                        l1 = (ifracx * c3g) + (fracx * c4g);
-                        gf = (ifracy * l0) + (fracy * l1);
-
-                        // Blue
-                        l0 = (ifracx * c1b) + (fracx * c2b);
-                        l1 = (ifracx * c3b) + (fracx * c4b);
-                        bf = (ifracy * l0) + (fracy * l1);
-
-                        // Cast to byte
-                        r = (byte)rf;
-                        g = (byte)gf;
-                        b = (byte)bf;
-
-                        // Write destination
-                        pd[srcIdx++] = (a << 24) | (r << 16) | (g << 8) | b;
-                    }
-                }
-            }
-            return pd;
-        }
-
-        #endregion
-
-        #region Rotate
-
-        /// <summary>
-        /// Rotates the bitmap in 90° steps clockwise and returns a new rotated WriteableBitmap.
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="angle">The angle in degrees the bitmap should be rotated in 90° steps clockwise.</param>
-        /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
-        public static WriteableBitmap Rotate(this WriteableBitmap bmp, int angle)
-        {
-            using var context = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-            // Use refs for faster access (really important!) speeds up a lot!
-            var w = context.Width;
-            var h = context.Height;
-            var p = context.Pixels;
-            var i = 0;
-            WriteableBitmap result = null;
-            angle %= 360;
-
-            if (angle is > 0 and <= 90)
-            {
-                result = BitmapFactory.New(h, w);
-                using var destContext = result.GetBitmapContext();
-                var rp = destContext.Pixels;
-                for (var x = 0; x < w; x++)
-                {
-                    for (var y = h - 1; y >= 0; y--)
-                    {
-                        var srcInd = (y * w) + x;
-                        rp[i] = p[srcInd];
-                        i++;
-                    }
-                }
-            }
-            else if (angle is > 90 and <= 180)
-            {
-                result = BitmapFactory.New(w, h);
-                using var destContext = result.GetBitmapContext();
-                var rp = destContext.Pixels;
                 for (var y = h - 1; y >= 0; y--)
                 {
-                    for (var x = w - 1; x >= 0; x--)
-                    {
-                        var srcInd = (y * w) + x;
-                        rp[i] = p[srcInd];
-                        i++;
-                    }
+                    var srcInd = (y * w) + x;
+                    rp[i] = p[srcInd];
+                    i++;
                 }
             }
-            else if (angle is > 180 and <= 270)
+        }
+        else if (angle is > 90 and <= 180)
+        {
+            result = BitmapFactory.New(w, h);
+            using var destContext = result.GetBitmapContext();
+            var rp = destContext.Pixels;
+            for (var y = h - 1; y >= 0; y--)
             {
-                result = BitmapFactory.New(h, w);
-                using var destContext = result.GetBitmapContext();
-                var rp = destContext.Pixels;
                 for (var x = w - 1; x >= 0; x--)
                 {
-                    for (var y = 0; y < h; y++)
-                    {
-                        var srcInd = (y * w) + x;
-                        rp[i] = p[srcInd];
-                        i++;
-                    }
+                    var srcInd = (y * w) + x;
+                    rp[i] = p[srcInd];
+                    i++;
                 }
             }
-            else
+        }
+        else if (angle is > 180 and <= 270)
+        {
+            result = BitmapFactory.New(h, w);
+            using var destContext = result.GetBitmapContext();
+            var rp = destContext.Pixels;
+            for (var x = w - 1; x >= 0; x--)
             {
-                result = Clone(bmp);
+                for (var y = 0; y < h; y++)
+                {
+                    var srcInd = (y * w) + x;
+                    rp[i] = p[srcInd];
+                    i++;
+                }
             }
-            return result;
+        }
+        else
+        {
+            result = Clone(bmp);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Rotates the bitmap in any degree returns a new rotated WriteableBitmap.
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
+    /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
+    /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
+    public static WriteableBitmap RotateFreeLegacy(this WriteableBitmap bmp, double angle, bool crop = true)
+    {
+        // rotating clockwise, so it's negative relative to Cartesian quadrants
+        double cnAngle = -1.0 * (Math.PI / 180) * angle;
+
+        // general iterators
+        int i, j;
+        // calculated indices in Cartesian coordinates
+        int x, y;
+        double fDistance, fPolarAngle;
+        // for use in neighboring indices in Cartesian coordinates
+        int iFloorX, iCeilingX, iFloorY, iCeilingY;
+        // calculated indices in Cartesian coordinates with trailing decimals
+        double fTrueX, fTrueY;
+        // for interpolation
+        double fDeltaX, fDeltaY;
+
+        // interpolated "top" pixels
+        double fTopRed, fTopGreen, fTopBlue, fTopAlpha;
+
+        // interpolated "bottom" pixels
+        double fBottomRed, fBottomGreen, fBottomBlue, fBottomAlpha;
+
+        // final interpolated color components
+        int iRed, iGreen, iBlue, iAlpha;
+
+        int iCentreX, iCentreY;
+        int iDestCentreX, iDestCentreY;
+        int iWidth, iHeight, newWidth, newHeight;
+        using var bmpContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+        iWidth = bmpContext.Width;
+        iHeight = bmpContext.Height;
+
+        if (crop)
+        {
+            newWidth = iWidth;
+            newHeight = iHeight;
+        }
+        else
+        {
+            var rad = angle / (180 / Math.PI);
+            newWidth = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iHeight) + Math.Abs(Math.Cos(rad) * iWidth));
+            newHeight = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iWidth) + Math.Abs(Math.Cos(rad) * iHeight));
         }
 
-        /// <summary>
-        /// Rotates the bitmap in any degree returns a new rotated WriteableBitmap.
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
-        /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
-        /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
-        public static WriteableBitmap RotateFreeLegacy(this WriteableBitmap bmp, double angle, bool crop = true)
+        iCentreX = iWidth / 2;
+        iCentreY = iHeight / 2;
+
+        iDestCentreX = newWidth / 2;
+        iDestCentreY = newHeight / 2;
+
+        var bmBilinearInterpolation = BitmapFactory.New(newWidth, newHeight);
+
+        using var bilinearContext = bmBilinearInterpolation.GetBitmapContext();
+        var newp = bilinearContext.Pixels;
+        var oldp = bmpContext.Pixels;
+        var oldw = bmpContext.Width;
+
+        // assigning pixels of destination image from source image
+        // with bilinear interpolation
+        for (i = 0; i < newHeight; ++i)
         {
-            // rotating clockwise, so it's negative relative to Cartesian quadrants
-            double cnAngle = -1.0 * (Math.PI / 180) * angle;
-
-            // general iterators
-            int i, j;
-            // calculated indices in Cartesian coordinates
-            int x, y;
-            double fDistance, fPolarAngle;
-            // for use in neighboring indices in Cartesian coordinates
-            int iFloorX, iCeilingX, iFloorY, iCeilingY;
-            // calculated indices in Cartesian coordinates with trailing decimals
-            double fTrueX, fTrueY;
-            // for interpolation
-            double fDeltaX, fDeltaY;
-
-            // interpolated "top" pixels
-            double fTopRed, fTopGreen, fTopBlue, fTopAlpha;
-
-            // interpolated "bottom" pixels
-            double fBottomRed, fBottomGreen, fBottomBlue, fBottomAlpha;
-
-            // final interpolated color components
-            int iRed, iGreen, iBlue, iAlpha;
-
-            int iCentreX, iCentreY;
-            int iDestCentreX, iDestCentreY;
-            int iWidth, iHeight, newWidth, newHeight;
-            using var bmpContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-            iWidth = bmpContext.Width;
-            iHeight = bmpContext.Height;
-
-            if (crop)
+            for (j = 0; j < newWidth; ++j)
             {
-                newWidth = iWidth;
-                newHeight = iHeight;
-            }
-            else
-            {
-                var rad = angle / (180 / Math.PI);
-                newWidth = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iHeight) + Math.Abs(Math.Cos(rad) * iWidth));
-                newHeight = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iWidth) + Math.Abs(Math.Cos(rad) * iHeight));
-            }
+                // convert raster to Cartesian
+                x = j - iDestCentreX;
+                y = iDestCentreY - i;
 
-            iCentreX = iWidth / 2;
-            iCentreY = iHeight / 2;
-
-            iDestCentreX = newWidth / 2;
-            iDestCentreY = newHeight / 2;
-
-            var bmBilinearInterpolation = BitmapFactory.New(newWidth, newHeight);
-
-            using var bilinearContext = bmBilinearInterpolation.GetBitmapContext();
-            var newp = bilinearContext.Pixels;
-            var oldp = bmpContext.Pixels;
-            var oldw = bmpContext.Width;
-
-            // assigning pixels of destination image from source image
-            // with bilinear interpolation
-            for (i = 0; i < newHeight; ++i)
-            {
-                for (j = 0; j < newWidth; ++j)
+                // convert Cartesian to polar
+                fDistance = Math.Sqrt((x * x) + (y * y));
+                if (x == 0)
                 {
-                    // convert raster to Cartesian
-                    x = j - iDestCentreX;
-                    y = iDestCentreY - i;
-
-                    // convert Cartesian to polar
-                    fDistance = Math.Sqrt((x * x) + (y * y));
-                    if (x == 0)
+                    if (y == 0)
                     {
-                        if (y == 0)
-                        {
-                            // center of image, no rotation needed
-                            newp[(i * newWidth) + j] = oldp[(iCentreY * oldw) + iCentreX];
-                            continue;
-                        }
-                        fPolarAngle = y < 0 ? 1.5 * Math.PI : 0.5 * Math.PI;
-                    }
-                    else
-                    {
-                        fPolarAngle = Math.Atan2(y, x);
-                    }
-
-                    // the crucial rotation part
-                    // "reverse" rotate, so minus instead of plus
-                    fPolarAngle -= cnAngle;
-
-                    // convert polar to Cartesian
-                    fTrueX = fDistance * Math.Cos(fPolarAngle);
-                    fTrueY = fDistance * Math.Sin(fPolarAngle);
-
-                    // convert Cartesian to raster
-                    fTrueX += iCentreX;
-                    fTrueY = iCentreY - fTrueY;
-
-                    iFloorX = (int)Math.Floor(fTrueX);
-                    iFloorY = (int)Math.Floor(fTrueY);
-                    iCeilingX = (int)Math.Ceiling(fTrueX);
-                    iCeilingY = (int)Math.Ceiling(fTrueY);
-
-                    // check bounds
-                    if (iFloorX < 0 || iCeilingX < 0 || iFloorX >= iWidth || iCeilingX >= iWidth || iFloorY < 0 ||
-                        iCeilingY < 0 || iFloorY >= iHeight || iCeilingY >= iHeight)
-                    {
+                        // center of image, no rotation needed
+                        newp[(i * newWidth) + j] = oldp[(iCentreY * oldw) + iCentreX];
                         continue;
                     }
-
-                    fDeltaX = fTrueX - iFloorX;
-                    fDeltaY = fTrueY - iFloorY;
-
-                    var clrTopLeft = oldp[(iFloorY * oldw) + iFloorX];
-                    var clrTopRight = oldp[(iFloorY * oldw) + iCeilingX];
-                    var clrBottomLeft = oldp[(iCeilingY * oldw) + iFloorX];
-                    var clrBottomRight = oldp[(iCeilingY * oldw) + iCeilingX];
-
-                    fTopAlpha = ((1 - fDeltaX) * ((clrTopLeft >> 24) & 0xFF)) + (fDeltaX * ((clrTopRight >> 24) & 0xFF));
-                    fTopRed = ((1 - fDeltaX) * ((clrTopLeft >> 16) & 0xFF)) + (fDeltaX * ((clrTopRight >> 16) & 0xFF));
-                    fTopGreen = ((1 - fDeltaX) * ((clrTopLeft >> 8) & 0xFF)) + (fDeltaX * ((clrTopRight >> 8) & 0xFF));
-                    fTopBlue = ((1 - fDeltaX) * (clrTopLeft & 0xFF)) + (fDeltaX * (clrTopRight & 0xFF));
-
-                    // linearly interpolate horizontally between bottom neighbors
-                    fBottomAlpha = ((1 - fDeltaX) * ((clrBottomLeft >> 24) & 0xFF)) + (fDeltaX * ((clrBottomRight >> 24) & 0xFF));
-                    fBottomRed = ((1 - fDeltaX) * ((clrBottomLeft >> 16) & 0xFF)) + (fDeltaX * ((clrBottomRight >> 16) & 0xFF));
-                    fBottomGreen = ((1 - fDeltaX) * ((clrBottomLeft >> 8) & 0xFF)) + (fDeltaX * ((clrBottomRight >> 8) & 0xFF));
-                    fBottomBlue = ((1 - fDeltaX) * (clrBottomLeft & 0xFF)) + (fDeltaX * (clrBottomRight & 0xFF));
-
-                    // linearly interpolate vertically between top and bottom interpolated results
-                    iRed = (int)Math.Round(((1 - fDeltaY) * fTopRed) + (fDeltaY * fBottomRed));
-                    iGreen = (int)Math.Round(((1 - fDeltaY) * fTopGreen) + (fDeltaY * fBottomGreen));
-                    iBlue = (int)Math.Round(((1 - fDeltaY) * fTopBlue) + (fDeltaY * fBottomBlue));
-                    iAlpha = (int)Math.Round(((1 - fDeltaY) * fTopAlpha) + (fDeltaY * fBottomAlpha));
-
-                    // make sure color values are valid
-                    if (iRed < 0)
-                    {
-                        iRed = 0;
-                    }
-
-                    if (iRed > 255)
-                    {
-                        iRed = 255;
-                    }
-
-                    if (iGreen < 0)
-                    {
-                        iGreen = 0;
-                    }
-
-                    if (iGreen > 255)
-                    {
-                        iGreen = 255;
-                    }
-
-                    if (iBlue < 0)
-                    {
-                        iBlue = 0;
-                    }
-
-                    if (iBlue > 255)
-                    {
-                        iBlue = 255;
-                    }
-
-                    if (iAlpha < 0)
-                    {
-                        iAlpha = 0;
-                    }
-
-                    if (iAlpha > 255)
-                    {
-                        iAlpha = 255;
-                    }
-
-                    var a = iAlpha + 1;
-                    newp[(i * newWidth) + j] = (iAlpha << 24)
-                                           | ((byte)((iRed * a) >> 8) << 16)
-                                           | ((byte)((iGreen * a) >> 8) << 8)
-                                           | ((byte)((iBlue * a) >> 8));
+                    fPolarAngle = y < 0 ? 1.5 * Math.PI : 0.5 * Math.PI;
                 }
+                else
+                {
+                    fPolarAngle = Math.Atan2(y, x);
+                }
+
+                // the crucial rotation part
+                // "reverse" rotate, so minus instead of plus
+                fPolarAngle -= cnAngle;
+
+                // convert polar to Cartesian
+                fTrueX = fDistance * Math.Cos(fPolarAngle);
+                fTrueY = fDistance * Math.Sin(fPolarAngle);
+
+                // convert Cartesian to raster
+                fTrueX += iCentreX;
+                fTrueY = iCentreY - fTrueY;
+
+                iFloorX = (int)Math.Floor(fTrueX);
+                iFloorY = (int)Math.Floor(fTrueY);
+                iCeilingX = (int)Math.Ceiling(fTrueX);
+                iCeilingY = (int)Math.Ceiling(fTrueY);
+
+                // check bounds
+                if (iFloorX < 0 || iCeilingX < 0 || iFloorX >= iWidth || iCeilingX >= iWidth || iFloorY < 0 ||
+                    iCeilingY < 0 || iFloorY >= iHeight || iCeilingY >= iHeight)
+                {
+                    continue;
+                }
+
+                fDeltaX = fTrueX - iFloorX;
+                fDeltaY = fTrueY - iFloorY;
+
+                var clrTopLeft = oldp[(iFloorY * oldw) + iFloorX];
+                var clrTopRight = oldp[(iFloorY * oldw) + iCeilingX];
+                var clrBottomLeft = oldp[(iCeilingY * oldw) + iFloorX];
+                var clrBottomRight = oldp[(iCeilingY * oldw) + iCeilingX];
+
+                fTopAlpha = ((1 - fDeltaX) * ((clrTopLeft >> 24) & 0xFF)) + (fDeltaX * ((clrTopRight >> 24) & 0xFF));
+                fTopRed = ((1 - fDeltaX) * ((clrTopLeft >> 16) & 0xFF)) + (fDeltaX * ((clrTopRight >> 16) & 0xFF));
+                fTopGreen = ((1 - fDeltaX) * ((clrTopLeft >> 8) & 0xFF)) + (fDeltaX * ((clrTopRight >> 8) & 0xFF));
+                fTopBlue = ((1 - fDeltaX) * (clrTopLeft & 0xFF)) + (fDeltaX * (clrTopRight & 0xFF));
+
+                // linearly interpolate horizontally between bottom neighbors
+                fBottomAlpha = ((1 - fDeltaX) * ((clrBottomLeft >> 24) & 0xFF)) + (fDeltaX * ((clrBottomRight >> 24) & 0xFF));
+                fBottomRed = ((1 - fDeltaX) * ((clrBottomLeft >> 16) & 0xFF)) + (fDeltaX * ((clrBottomRight >> 16) & 0xFF));
+                fBottomGreen = ((1 - fDeltaX) * ((clrBottomLeft >> 8) & 0xFF)) + (fDeltaX * ((clrBottomRight >> 8) & 0xFF));
+                fBottomBlue = ((1 - fDeltaX) * (clrBottomLeft & 0xFF)) + (fDeltaX * (clrBottomRight & 0xFF));
+
+                // linearly interpolate vertically between top and bottom interpolated results
+                iRed = (int)Math.Round(((1 - fDeltaY) * fTopRed) + (fDeltaY * fBottomRed));
+                iGreen = (int)Math.Round(((1 - fDeltaY) * fTopGreen) + (fDeltaY * fBottomGreen));
+                iBlue = (int)Math.Round(((1 - fDeltaY) * fTopBlue) + (fDeltaY * fBottomBlue));
+                iAlpha = (int)Math.Round(((1 - fDeltaY) * fTopAlpha) + (fDeltaY * fBottomAlpha));
+
+                // make sure color values are valid
+                if (iRed < 0)
+                {
+                    iRed = 0;
+                }
+
+                if (iRed > 255)
+                {
+                    iRed = 255;
+                }
+
+                if (iGreen < 0)
+                {
+                    iGreen = 0;
+                }
+
+                if (iGreen > 255)
+                {
+                    iGreen = 255;
+                }
+
+                if (iBlue < 0)
+                {
+                    iBlue = 0;
+                }
+
+                if (iBlue > 255)
+                {
+                    iBlue = 255;
+                }
+
+                if (iAlpha < 0)
+                {
+                    iAlpha = 0;
+                }
+
+                if (iAlpha > 255)
+                {
+                    iAlpha = 255;
+                }
+
+                var a = iAlpha + 1;
+                newp[(i * newWidth) + j] = (iAlpha << 24)
+                                       | ((byte)((iRed * a) >> 8) << 16)
+                                       | ((byte)((iGreen * a) >> 8) << 8)
+                                       | ((byte)((iBlue * a) >> 8));
             }
-            return bmBilinearInterpolation;
+        }
+        return bmBilinearInterpolation;
+    }
+
+    /// <summary>
+    /// Rotates the bitmap in any degree returns a new rotated WriteableBitmap (optimized).
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
+    /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
+    /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
+    public static WriteableBitmap RotateFree(this WriteableBitmap bmp, double angle, bool crop = true, int missingPixelsColor = 255 << 24)
+    {
+        double cnAngle = -1.0 * (Math.PI / 180.0) * angle;
+        int iWidth, iHeight, newWidth, newHeight;
+        int iCentreX, iCentreY;
+        int iDestCentreX, iDestCentreY;
+
+        using var bmpContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+        iWidth = bmpContext.Width;
+        iHeight = bmpContext.Height;
+        var oldPixels = bmpContext.Pixels;
+
+        if (crop)
+        {
+            newWidth = iWidth;
+            newHeight = iHeight;
+        }
+        else
+        {
+            var rad = angle / (180.0 / Math.PI);
+            newWidth = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iHeight) + Math.Abs(Math.Cos(rad) * iWidth));
+            newHeight = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iWidth) + Math.Abs(Math.Cos(rad) * iHeight));
         }
 
-        /// <summary>
-        /// Rotates the bitmap in any degree returns a new rotated WriteableBitmap (optimized).
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="angle">Arbitrary angle in 360 Degrees (positive = clockwise).</param>
-        /// <param name="crop">if true: keep the size, false: adjust canvas to new size</param>
-        /// <returns>A new WriteableBitmap that is a rotated version of the input.</returns>
-        public static WriteableBitmap RotateFree(this WriteableBitmap bmp, double angle, bool crop = true, int missingPixelsColor = 255 << 24)
+        iCentreX = iWidth / 2;
+        iCentreY = iHeight / 2;
+        iDestCentreX = newWidth / 2;
+        iDestCentreY = newHeight / 2;
+
+        var bmBilinearInterpolation = BitmapFactory.New(newWidth, newHeight);
+        using var bilinearContext = bmBilinearInterpolation.GetBitmapContext();
+        var newPixels = bilinearContext.Pixels; // We'll write to the rented array via the context
+
+        // Pre-calculate trigonometric values
+        var cosAngle = Math.Cos(cnAngle);
+        var sinAngle = Math.Sin(cnAngle);
+
+        // Parallel processing of pixels
+        Parallel.For(0, newHeight, i =>
         {
-            double cnAngle = -1.0 * (Math.PI / 180.0) * angle;
-            int iWidth, iHeight, newWidth, newHeight;
-            int iCentreX, iCentreY;
-            int iDestCentreX, iDestCentreY;
-
-            using var bmpContext = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-            iWidth = bmpContext.Width;
-            iHeight = bmpContext.Height;
-            var oldPixels = bmpContext.Pixels;
-
-            if (crop)
+            for (int j = 0; j < newWidth; ++j)
             {
-                newWidth = iWidth;
-                newHeight = iHeight;
-            }
-            else
-            {
-                var rad = angle / (180.0 / Math.PI);
-                newWidth = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iHeight) + Math.Abs(Math.Cos(rad) * iWidth));
-                newHeight = (int)Math.Ceiling(Math.Abs(Math.Sin(rad) * iWidth) + Math.Abs(Math.Cos(rad) * iHeight));
-            }
+                // Convert raster to Cartesian (centered)
+                double x = j - iDestCentreX;
+                double y = iDestCentreY - i;
 
-            iCentreX = iWidth / 2;
-            iCentreY = iHeight / 2;
-            iDestCentreX = newWidth / 2;
-            iDestCentreY = newHeight / 2;
+                // Rotate the Cartesian coordinates (reverse rotation)
+                double rotatedX = x * cosAngle - y * sinAngle;
+                double rotatedY = x * sinAngle + y * cosAngle;
 
-            var bmBilinearInterpolation = BitmapFactory.New(newWidth, newHeight);
-            using var bilinearContext = bmBilinearInterpolation.GetBitmapContext();
-            var newPixels = bilinearContext.Pixels; // We'll write to the rented array via the context
+                // Convert back to raster coordinates
+                double sourceX = rotatedX + iCentreX;
+                double sourceY = iCentreY - rotatedY;
 
-            // Pre-calculate trigonometric values
-            var cosAngle = Math.Cos(cnAngle);
-            var sinAngle = Math.Sin(cnAngle);
+                // Bilinear interpolation
+                int floorX = (int)Math.Floor(sourceX);
+                int floorY = (int)Math.Floor(sourceY);
+                int ceilX = (int)Math.Ceiling(sourceX);
+                int ceilY = (int)Math.Ceiling(sourceY);
 
-            // Parallel processing of pixels
-            Parallel.For(0, newHeight, i =>
-            {
-                for (int j = 0; j < newWidth; ++j)
+                if (floorX >= 0 && ceilX < iWidth && floorY >= 0 && ceilY < iHeight)
                 {
-                    // Convert raster to Cartesian (centered)
-                    double x = j - iDestCentreX;
-                    double y = iDestCentreY - i;
+                    double deltaX = sourceX - floorX;
+                    double deltaY = sourceY - floorY;
 
-                    // Rotate the Cartesian coordinates (reverse rotation)
-                    double rotatedX = x * cosAngle - y * sinAngle;
-                    double rotatedY = x * sinAngle + y * cosAngle;
+                    var topLeft = oldPixels[(floorY * iWidth) + floorX];
+                    var topRight = oldPixels[(floorY * iWidth) + ceilX];
+                    var bottomLeft = oldPixels[(ceilY * iWidth) + floorX];
+                    var bottomRight = oldPixels[(ceilY * iWidth) + ceilX];
 
-                    // Convert back to raster coordinates
-                    double sourceX = rotatedX + iCentreX;
-                    double sourceY = iCentreY - rotatedY;
+                    // Interpolate alpha
+                    double topAlpha = ((1 - deltaX) * ((topLeft >> 24) & 0xFF)) + (deltaX * ((topRight >> 24) & 0xFF));
+                    double bottomAlpha = ((1 - deltaX) * ((bottomLeft >> 24) & 0xFF)) + (deltaX * ((bottomRight >> 24) & 0xFF));
+                    int alpha = (int)Math.Round(((1 - deltaY) * topAlpha) + (deltaY * bottomAlpha));
 
-                    // Bilinear interpolation
-                    int floorX = (int)Math.Floor(sourceX);
-                    int floorY = (int)Math.Floor(sourceY);
-                    int ceilX = (int)Math.Ceiling(sourceX);
-                    int ceilY = (int)Math.Ceiling(sourceY);
+                    // Interpolate red
+                    double topRed = ((1 - deltaX) * ((topLeft >> 16) & 0xFF)) + (deltaX * ((topRight >> 16) & 0xFF));
+                    double bottomRed = ((1 - deltaX) * ((bottomLeft >> 16) & 0xFF)) + (deltaX * ((bottomRight >> 16) & 0xFF));
+                    int red = (int)Math.Round(((1 - deltaY) * topRed) + (deltaY * bottomRed));
 
-                    if (floorX >= 0 && ceilX < iWidth && floorY >= 0 && ceilY < iHeight)
+                    // Interpolate green
+                    double topGreen = ((1 - deltaX) * ((topLeft >> 8) & 0xFF)) + (deltaX * ((topRight >> 8) & 0xFF));
+                    double bottomGreen = ((1 - deltaX) * ((bottomLeft >> 8) & 0xFF)) + (deltaX * ((bottomRight >> 8) & 0xFF));
+                    int green = (int)Math.Round(((1 - deltaY) * topGreen) + (deltaY * bottomGreen));
+
+                    // Interpolate blue
+                    double topBlue = ((1 - deltaX) * (topLeft & 0xFF)) + (deltaX * (topRight & 0xFF));
+                    double bottomBlue = ((1 - deltaX) * (bottomLeft & 0xFF)) + (deltaX * (bottomRight & 0xFF));
+                    int blue = (int)Math.Round(((1 - deltaY) * topBlue) + (deltaY * bottomBlue));
+
+                    newPixels[(i * newWidth) + j] = (alpha << 24) | (red << 16) | (green << 8) | blue;
+                }
+                else
+                {
+                    newPixels[(i * newWidth) + j] = missingPixelsColor;
+                }
+            }
+        });
+        return bmBilinearInterpolation;
+    }
+
+    #endregion
+
+    #region Flip
+
+    /// <summary>
+    /// Flips (reflects the image) either vertical or horizontal.
+    /// </summary>
+    /// <param name="bmp">The WriteableBitmap.</param>
+    /// <param name="flipMode">The flip mode.</param>
+    /// <returns>A new WriteableBitmap that is a flipped version of the input.</returns>
+    public static WriteableBitmap Flip(this WriteableBitmap bmp, FlipMode flipMode)
+    {
+        using var context = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
+        // Use refs for faster access (really important!) speeds up a lot!
+        var w = context.Width;
+        var h = context.Height;
+        var p = context.Pixels;
+        var i = 0;
+        WriteableBitmap result = null;
+
+        if (flipMode == FlipMode.Horizontal)
+        {
+            result = BitmapFactory.New(w, h);
+            using var destContext = result.GetBitmapContext();
+            var rp = destContext.Pixels;
+            for (var y = h - 1; y >= 0; y--)
+            {
+                for (var x = 0; x < w; x++)
+                {
+                    var srcInd = (y * w) + x;
+                    rp[i] = p[srcInd];
+                    i++;
+                }
+            }
+        }
+        else if (flipMode == FlipMode.Vertical)
+        {
+            result = BitmapFactory.New(w, h);
+            using var destContext = result.GetBitmapContext();
+            var rp = destContext.Pixels;
+            for (var y = 0; y < h; y++)
+            {
+                for (var x = w - 1; x >= 0; x--)
+                {
+                    var srcInd = (y * w) + x;
+                    rp[i] = p[srcInd];
+                    i++;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    #endregion
+
+    #region Binning
+
+    /// <summary>
+    /// Creates a new WriteableBitmap by binning the pixels of the source WriteableBitmap in parallel, optimizing for memory access
+    /// </summary>
+    /// <param name="bmp">The source WriteableBitmap.</param>
+    /// <param name="binning">The binning factor. For example, a binning of 2 will average 2x2 pixel blocks.</param>
+    public static unsafe WriteableBitmap Binning(this WriteableBitmap bmp, int binning = 2)
+    {
+        if (bmp == null)
+        {
+            return null;
+        }
+        if (bmp.Format.BitsPerPixel != 32)
+        {
+            throw new ArgumentException("Only 32 bits pixel formats are supported.", nameof(bmp));
+        }
+        if (binning <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(binning), "Binning factor must be greater than zero.");
+        }
+        int sourceWidth = bmp.PixelWidth;
+        int sourceHeight = bmp.PixelHeight;
+        int targetWidth = sourceWidth / binning;
+        int targetHeight = sourceHeight / binning;
+        if (targetWidth == 0 || targetHeight == 0)
+        {
+            throw new InvalidOperationException("Binning factor resulted in zero target dimensions.");
+        }
+        var targetBmp = BitmapFactory.New(targetWidth, targetHeight);
+        bmp.Lock();
+        targetBmp.Lock();
+        try
+        {
+            byte* pSource = (byte*)bmp.BackBuffer.ToPointer();
+            int sourceStride = bmp.BackBufferStride;
+            byte* pTarget = (byte*)targetBmp.BackBuffer.ToPointer();
+            int targetStride = targetBmp.BackBufferStride;
+            Parallel.For(0, targetHeight, y =>
+            {
+                for (int x = 0; x < targetWidth; x++)
+                {
+                    int sourceX = x * binning;
+                    int sourceY = y * binning;
+                    int totalB = 0;
+                    int totalG = 0;
+                    int totalR = 0;
+                    int pixelCount = 0;
+                    for (int dy = 0; dy < binning; dy++)
                     {
-                        double deltaX = sourceX - floorX;
-                        double deltaY = sourceY - floorY;
-
-                        var topLeft = oldPixels[(floorY * iWidth) + floorX];
-                        var topRight = oldPixels[(floorY * iWidth) + ceilX];
-                        var bottomLeft = oldPixels[(ceilY * iWidth) + floorX];
-                        var bottomRight = oldPixels[(ceilY * iWidth) + ceilX];
-
-                        // Interpolate alpha
-                        double topAlpha = ((1 - deltaX) * ((topLeft >> 24) & 0xFF)) + (deltaX * ((topRight >> 24) & 0xFF));
-                        double bottomAlpha = ((1 - deltaX) * ((bottomLeft >> 24) & 0xFF)) + (deltaX * ((bottomRight >> 24) & 0xFF));
-                        int alpha = (int)Math.Round(((1 - deltaY) * topAlpha) + (deltaY * bottomAlpha));
-
-                        // Interpolate red
-                        double topRed = ((1 - deltaX) * ((topLeft >> 16) & 0xFF)) + (deltaX * ((topRight >> 16) & 0xFF));
-                        double bottomRed = ((1 - deltaX) * ((bottomLeft >> 16) & 0xFF)) + (deltaX * ((bottomRight >> 16) & 0xFF));
-                        int red = (int)Math.Round(((1 - deltaY) * topRed) + (deltaY * bottomRed));
-
-                        // Interpolate green
-                        double topGreen = ((1 - deltaX) * ((topLeft >> 8) & 0xFF)) + (deltaX * ((topRight >> 8) & 0xFF));
-                        double bottomGreen = ((1 - deltaX) * ((bottomLeft >> 8) & 0xFF)) + (deltaX * ((bottomRight >> 8) & 0xFF));
-                        int green = (int)Math.Round(((1 - deltaY) * topGreen) + (deltaY * bottomGreen));
-
-                        // Interpolate blue
-                        double topBlue = ((1 - deltaX) * (topLeft & 0xFF)) + (deltaX * (topRight & 0xFF));
-                        double bottomBlue = ((1 - deltaX) * (bottomLeft & 0xFF)) + (deltaX * (bottomRight & 0xFF));
-                        int blue = (int)Math.Round(((1 - deltaY) * topBlue) + (deltaY * bottomBlue));
-
-                        newPixels[(i * newWidth) + j] = (alpha << 24) | (red << 16) | (green << 8) | blue;
+                        for (int dx = 0; dx < binning; dx++)
+                        {
+                            int currentSourceX = sourceX + dx;
+                            int currentSourceY = sourceY + dy;
+                            if (currentSourceX < sourceWidth && currentSourceY < sourceHeight)
+                            {
+                                byte* sourcePixel = pSource + (currentSourceY * sourceStride) + (currentSourceX * 4);
+                                totalB += sourcePixel[0];
+                                totalG += sourcePixel[1];
+                                totalR += sourcePixel[2];
+                                pixelCount++;
+                            }
+                        }
                     }
-                    else
+                    if (pixelCount > 0)
                     {
-                        newPixels[(i * newWidth) + j] = missingPixelsColor;
+                        int averageB = totalB / pixelCount;
+                        int averageG = totalG / pixelCount;
+                        int averageR = totalR / pixelCount;
+
+                        byte* targetPixel = pTarget + (y * targetStride) + (x * 4);
+                        targetPixel[0] = (byte)averageB;
+                        targetPixel[1] = (byte)averageG;
+                        targetPixel[2] = (byte)averageR;
+                        targetPixel[3] = 255;
                     }
                 }
             });
-            return bmBilinearInterpolation;
         }
-
-        #endregion
-
-        #region Flip
-
-        /// <summary>
-        /// Flips (reflects the image) either vertical or horizontal.
-        /// </summary>
-        /// <param name="bmp">The WriteableBitmap.</param>
-        /// <param name="flipMode">The flip mode.</param>
-        /// <returns>A new WriteableBitmap that is a flipped version of the input.</returns>
-        public static WriteableBitmap Flip(this WriteableBitmap bmp, FlipMode flipMode)
+        finally
         {
-            using var context = bmp.GetBitmapContext(ReadWriteMode.ReadOnly);
-            // Use refs for faster access (really important!) speeds up a lot!
-            var w = context.Width;
-            var h = context.Height;
-            var p = context.Pixels;
-            var i = 0;
-            WriteableBitmap result = null;
-
-            if (flipMode == FlipMode.Horizontal)
-            {
-                result = BitmapFactory.New(w, h);
-                using var destContext = result.GetBitmapContext();
-                var rp = destContext.Pixels;
-                for (var y = h - 1; y >= 0; y--)
-                {
-                    for (var x = 0; x < w; x++)
-                    {
-                        var srcInd = (y * w) + x;
-                        rp[i] = p[srcInd];
-                        i++;
-                    }
-                }
-            }
-            else if (flipMode == FlipMode.Vertical)
-            {
-                result = BitmapFactory.New(w, h);
-                using var destContext = result.GetBitmapContext();
-                var rp = destContext.Pixels;
-                for (var y = 0; y < h; y++)
-                {
-                    for (var x = w - 1; x >= 0; x--)
-                    {
-                        var srcInd = (y * w) + x;
-                        rp[i] = p[srcInd];
-                        i++;
-                    }
-                }
-            }
-
-            return result;
+            // Always unlock the back buffers
+            bmp.Unlock();
+            targetBmp.Unlock();
         }
-
-        #endregion
-
-        #region Binning
-
-        /// <summary>
-        /// Creates a new WriteableBitmap by binning the pixels of the source WriteableBitmap in parallel, optimizing for memory access
-        /// </summary>
-        /// <param name="bmp">The source WriteableBitmap.</param>
-        /// <param name="binning">The binning factor. For example, a binning of 2 will average 2x2 pixel blocks.</param>
-        public static unsafe WriteableBitmap Binning(this WriteableBitmap bmp, int binning = 2)
-        {
-            if (bmp == null)
-            {
-                return null;
-            }
-            if (bmp.Format.BitsPerPixel != 32)
-            {
-                throw new ArgumentException("Only 32 bits pixel formats are supported.", nameof(bmp));
-            }
-            if (binning <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(binning), "Binning factor must be greater than zero.");
-            }
-            int sourceWidth = bmp.PixelWidth;
-            int sourceHeight = bmp.PixelHeight;
-            int targetWidth = sourceWidth / binning;
-            int targetHeight = sourceHeight / binning;
-            if (targetWidth == 0 || targetHeight == 0)
-            {
-                throw new InvalidOperationException("Binning factor resulted in zero target dimensions.");
-            }
-            var targetBmp = BitmapFactory.New(targetWidth, targetHeight);
-            bmp.Lock();
-            targetBmp.Lock();
-            try
-            {
-                byte* pSource = (byte*)bmp.BackBuffer.ToPointer();
-                int sourceStride = bmp.BackBufferStride;
-                byte* pTarget = (byte*)targetBmp.BackBuffer.ToPointer();
-                int targetStride = targetBmp.BackBufferStride;
-                Parallel.For(0, targetHeight, y =>
-                {
-                    for (int x = 0; x < targetWidth; x++)
-                    {
-                        int sourceX = x * binning;
-                        int sourceY = y * binning;
-                        int totalB = 0;
-                        int totalG = 0;
-                        int totalR = 0;
-                        int pixelCount = 0;
-                        for (int dy = 0; dy < binning; dy++)
-                        {
-                            for (int dx = 0; dx < binning; dx++)
-                            {
-                                int currentSourceX = sourceX + dx;
-                                int currentSourceY = sourceY + dy;
-                                if (currentSourceX < sourceWidth && currentSourceY < sourceHeight)
-                                {
-                                    byte* sourcePixel = pSource + (currentSourceY * sourceStride) + (currentSourceX * 4);
-                                    totalB += sourcePixel[0];
-                                    totalG += sourcePixel[1];
-                                    totalR += sourcePixel[2];
-                                    pixelCount++;
-                                }
-                            }
-                        }
-                        if (pixelCount > 0)
-                        {
-                            int averageB = totalB / pixelCount;
-                            int averageG = totalG / pixelCount;
-                            int averageR = totalR / pixelCount;
-
-                            byte* targetPixel = pTarget + (y * targetStride) + (x * 4);
-                            targetPixel[0] = (byte)averageB;
-                            targetPixel[1] = (byte)averageG;
-                            targetPixel[2] = (byte)averageR;
-                            targetPixel[3] = 255;
-                        }
-                    }
-                });
-            }
-            finally
-            {
-                // Always unlock the back buffers
-                bmp.Unlock();
-                targetBmp.Unlock();
-            }
-            return targetBmp;
-        }
-        #endregion
-
-        #endregion
+        return targetBmp;
     }
+    #endregion
+
+    #endregion
 }
