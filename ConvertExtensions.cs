@@ -164,10 +164,10 @@ public static unsafe partial class WriteableBitmapExtensions
         0
  };
 
-        // Write header and data
-        using var writer = new BinaryWriter(destination);
-        writer.Write(header);
-        writer.Write(data);
+        // Write header and data directly; do not wrap in a BinaryWriter, which would dispose the caller's stream.
+        destination.Write(header, 0, header.Length);
+        destination.Write(data, 0, data.Length);
+        destination.Flush();
     }
 
     #endregion
