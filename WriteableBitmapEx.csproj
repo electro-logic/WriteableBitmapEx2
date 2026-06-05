@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<TargetFramework>net10.0-windows</TargetFramework>
+		<TargetFrameworks>net10.0-windows;net8.0-windows</TargetFrameworks>
 		<UseWPF>true</UseWPF>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -9,7 +9,13 @@
 		<AnalysisLevel>latest</AnalysisLevel>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 		<AssemblyDescription>WPF Extension methods for the WriteableBitmap</AssemblyDescription>
-		<Version>2.0.0</Version>
+		<Version>2.1.0</Version>
+
+		<!-- Deterministic build + Source Link for debuggable packages -->
+		<Deterministic>true</Deterministic>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
 
 		<!-- Trim/AOT readiness: the library's own code is trim/AOT-safe and the analyzers enforce it. -->
 		<IsTrimmable>true</IsTrimmable>
@@ -24,14 +30,14 @@
 		<Title>WriteableBitmapEx</Title>
 		<Authors>Rene Schulte and WriteableBitmapEx Contributors</Authors>
 		<Description>WriteableBitmapEx is a collection of fast, GDI+ like extension methods for the WPF WriteableBitmap. It allows direct manipulation of a bitmap for image processing and procedural drawing: pixels, lines, shapes, fills, splines, text, blitting, filtering, transformations and conversions.</Description>
-		<PackageTags>WriteableBitmap;Bitmap;Graphics;WPF;Drawing;2D;Imaging;Pixels;GDI;dotnet;net10</PackageTags>
+		<PackageTags>WriteableBitmap;Bitmap;Graphics;WPF;Drawing;2D;Imaging;Pixels;GDI;dotnet;net8;net10;SIMD</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/teichgraf/WriteableBitmapEx</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/teichgraf/WriteableBitmapEx</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Copyright>Copyright (c) 2009-2026 Rene Schulte and WriteableBitmapEx Contributors</Copyright>
-		<PackageReleaseNotes>2.0.0 — Modernized to .NET 10 (WPF). Single net10.0-windows target, legacy platforms removed, ToColorInt/Binning/SetRow/CropRelative API additions, RotateFree rewritten (10x). See docs/CHANGELOG.md.</PackageReleaseNotes>
+		<PackageReleaseNotes>2.1.0 — SIMD-accelerated Invert/AdjustBrightness, thread-local BitmapContext, span-based APIs, nullable reference types + analyzers, multi-targeting (net8.0-windows + net10.0-windows) and Source Link. See docs/CHANGELOG.md.</PackageReleaseNotes>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
@@ -42,8 +48,13 @@
 		<Compile Remove="WriteableBitmapEx.Benchmarks\**\*.cs" />
 	</ItemGroup>
 
-	<!-- Ship the readme inside the package. -->
+	<!-- Ship the readme inside the package (Remove+Include works for multi-targeting). -->
 	<ItemGroup>
-		<None Update="README.md" Pack="true" PackagePath="\" />
+		<None Remove="README.md" />
+		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
 	</ItemGroup>
 </Project>

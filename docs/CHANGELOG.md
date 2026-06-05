@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-06-04
+
+A performance and quality release on top of 2.0.0.
+
+### Added
+- **SIMD-accelerated filters**: `Invert` (portable `Vector<int>`) and `AdjustBrightness` (AVX2
+  saturating add/subtract), proven bit-identical to the scalar paths by tests.
+- `BitmapContext.AsSpan()` for allocation-free, delegate-free pixel iteration; `ReadOnlySpan<int>`/
+  `Span<int>` `BlockCopy` overloads; `FillPolygonsEvenOdd(ReadOnlySpan<int[]>)`.
+- **Multi-targeting**: the package now ships **net8.0-windows** and **net10.0-windows**.
+- Nullable reference types, .NET analyzers (`AnalysisLevel=latest`) and warnings-as-errors.
+- Deterministic builds + Source Link, coverlet code coverage, and a GitHub Actions CI workflow.
+- Expanded tests (Binning, CropRelative, RotateFree, ToByteArray/FromByteArray, WriteTga, Blit,
+  Gray, the span overloads and the SIMD filters).
+
+### Changed
+- `BitmapContext` reference-count maps are now `[ThreadStatic]`, removing the global lock and
+  `ConcurrentDictionary` from every `GetBitmapContext()` (WriteableBitmap is thread-affine).
+- Mechanical modernization of the core: file-scoped namespaces, dead SVN headers removed,
+  `[MethodImpl(AggressiveInlining)]` instead of the obsolete `[TargetedPatchingOptOut]`, and
+  `Clear(Color)`/`FillPolygon` use `Span.Fill`/`stackalloc` to avoid per-call allocations.
+- `CropRelative` and `Binning` throw `ArgumentNullException` on a null bitmap instead of returning
+  null; `CropRelative` throws `ArgumentException` for a relative region that maps to an empty area.
+
+### Fixed
+- `WriteTga` no longer disposes the caller's stream.
+
 ## [2.0.0] - 2026-06-04
 
 A modernization release that retargets the library to **.NET 10 (WPF)** and removes the legacy

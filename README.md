@@ -25,8 +25,8 @@ for the design and the `BitmapContext` model.
 
 ## Requirements
 
-- .NET 10 SDK or later, built with Visual Studio 2026 / the .NET 10 SDK
-- A WPF target: `net10.0-windows` with `<UseWPF>true</UseWPF>`
+- Built with the .NET 10 SDK / Visual Studio 2026; the package targets both `net8.0-windows` and `net10.0-windows`
+- A WPF app targeting `net8.0-windows` or `net10.0-windows` with `<UseWPF>true</UseWPF>`
 
 Pixels are premultiplied ARGB (`Pbgra32`) 32-bit integers, matching WPF's internal `WriteableBitmap` buffer.
 
@@ -36,7 +36,7 @@ The package is published to a private feed (`D:\Projects\PrivateNuget`). With th
 [`nuget.config`](nuget.config) in place:
 
 ```powershell
-dotnet add package WriteableBitmapEx --version 2.0.0
+dotnet add package WriteableBitmapEx --version 2.1.0
 ```
 
 ## Features
